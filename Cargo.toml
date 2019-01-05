@@ -1,0 +1,7 @@
+[package]
+name = "hppy"
+version = "0.1.0"
+authors = ["ducdetronquito <guillaume.paulet@giome.fr>"]
+edition = "2018"
+
+[dependencies]
