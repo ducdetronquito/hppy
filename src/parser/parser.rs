@@ -20,7 +20,7 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        parse("<div>Hello Hppy</div>");
+        parse("<div><p>Hello Hppy</p></div>");
         assert_eq!(2 + 2, 4);
     }
 

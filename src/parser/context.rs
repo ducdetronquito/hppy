@@ -5,6 +5,7 @@ pub struct Context {
     tag_name: String
 }
 
+
 impl Context {
 
     pub fn new() -> Self {
@@ -57,12 +58,13 @@ impl Context {
 
     fn handle_read_opening_tag_name(&mut self, character: char) {
         if character == '>' {
-            // Create a node here.
+            println!("Tag: {}", self.tag_name);
+            self.tag_name.clear();
             self.state = State::ReadContent;
         } else if character == ' ' {
             self.state = State::ReadAttributes;
         } else {
-            // Add the character to the tag buffer.
+            self.tag_name.push(character);
         }
     }
 
@@ -238,6 +240,13 @@ mod tests {
             let mut context = Context::from_state(State::ReadOpeningTagName);
             context.handle_read_opening_tag_name('a');
             assert_eq!(context.state, State::ReadOpeningTagName);
+        }
+
+        #[test]
+        fn test_tag_name_is_amended_when_process_any_other_character() {
+            let mut context = Context::from_state(State::ReadOpeningTagName);
+            context.handle_read_opening_tag_name('a');
+            assert_eq!(context.tag_name, "a");
         }
     }
 
