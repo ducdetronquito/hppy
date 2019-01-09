@@ -1,19 +1,25 @@
 use crate::parser::state::State;
 
+
 pub struct Context {
     state: State,
-    tag_name: String
+    token_has_been_found: bool,
+    token_name: String,
+    token_text_content: String,
 }
 
-
 impl Context {
-
     pub fn new() -> Self {
         Context::from_state(State::SeekOpeningTag)
     }
 
     pub fn from_state(state: State) -> Self {
-        Context {state: state, tag_name: String::new()}
+        Context {
+            state: state,
+            token_has_been_found: false,
+            token_name: String::new(),
+            token_text_content: String::new(),
+        }
     }
 
     pub fn handle(&mut self, character: char) {
@@ -37,6 +43,24 @@ impl Context {
         }
     }
 
+    pub fn token_has_been_found(&self) -> bool {
+        self.token_has_been_found
+    }
+
+    pub fn get_token_name(&self) -> &str {
+        &self.token_name
+    }
+
+    pub fn get_token_text_content(&self) -> &str {
+        &self.token_text_content
+    }
+
+    pub fn clear_token(&mut self) {
+        self.token_name.clear();
+        self.token_text_content.clear();
+        self.token_has_been_found = false;
+    }
+
     fn handle_opening_tag(&mut self, character: char) {
         if character == '<' {
             self.state = State::ReadTagName;
@@ -52,19 +76,18 @@ impl Context {
             } else {
                 self.state = State::ReadOpeningTagName;
             }
-            self.tag_name.push(character);
+            self.token_name.push(character);
         }
     }
 
     fn handle_read_opening_tag_name(&mut self, character: char) {
         if character == '>' {
-            println!("Tag: {}", self.tag_name);
-            self.tag_name.clear();
+            self.token_has_been_found = true;
             self.state = State::ReadContent;
         } else if character == ' ' {
             self.state = State::ReadAttributes;
         } else {
-            self.tag_name.push(character);
+            self.token_name.push(character);
         }
     }
 
@@ -83,7 +106,7 @@ impl Context {
             // Create a node from the tag buffer.
             self.state = State::ReadContent;
         } else {
-            // Amend the character to the tag buffer.
+            self.token_name.push(character);
         }
     }
 
@@ -91,17 +114,17 @@ impl Context {
         if character == '<' {
             self.state = State::ReadTagName;
         } else {
-            // Amend token to the content buffer
+            self.token_text_content.push(character);
             self.state = State::ReadText
         }
     }
 
     fn handle_read_text(&mut self, character: char) {
         if character == '<' {
-            // Create a text node from the text buffer.
+            self.token_has_been_found = true;
             self.state = State::ReadTagName;
         } else {
-            // Amend character to the text buffer.
+            self.token_text_content.push(character);
         }
     }
 
@@ -154,6 +177,30 @@ impl Context {
 mod tests {
     use super::{Context, State};
 
+    mod clear_token {
+        use super::Context;
+
+        #[test]
+        fn test_clear_every_token_related_buffer() {
+            let mut context = Context::new();
+            context.token_name.push_str("div");
+            context.token_text_content.push_str("Hello Hppy!");
+            context.clear_token();
+
+            assert_eq!(context.token_name.len(), 0);
+            assert_eq!(context.token_text_content.len(), 0);
+        }
+
+        #[test]
+        fn test_clear_token_notification() {
+            let mut context = Context::new();
+            context.token_has_been_found = true;
+            context.clear_token();
+
+            assert!(context.token_has_been_found == false);
+        }
+    }
+
     mod handle_opening_tag {
         use super::{Context, State};
 
@@ -183,10 +230,10 @@ mod tests {
         }
 
         #[test]
-        fn test_tag_name_is_not_amended_when_process_an_exclamation_mark() {
+        fn test_token_name_is_not_amended_when_process_an_exclamation_mark() {
             let mut context = Context::from_state(State::ReadTagName);
             context.handle_read_tag_name('!');
-            assert_eq!(context.tag_name, "");
+            assert_eq!(context.token_name, "");
         }
 
         #[test]
@@ -197,10 +244,10 @@ mod tests {
         }
 
         #[test]
-        fn test_tag_name_is_amended_when_process_a_slash() {
+        fn test_token_name_is_amended_when_process_a_slash() {
             let mut context = Context::from_state(State::ReadTagName);
             context.handle_read_tag_name('/');
-            assert_eq!(context.tag_name, "/");
+            assert_eq!(context.token_name, "/");
         }
 
         #[test]
@@ -211,10 +258,10 @@ mod tests {
         }
 
         #[test]
-        fn test_tag_name_is_amended_when_process_any_other_character() {
+        fn test_token_name_is_amended_when_process_any_other_character() {
             let mut context = Context::from_state(State::ReadTagName);
             context.handle_read_tag_name('a');
-            assert_eq!(context.tag_name, "a");
+            assert_eq!(context.token_name, "a");
         }
     }
 
@@ -226,6 +273,13 @@ mod tests {
             let mut context = Context::from_state(State::ReadOpeningTagName);
             context.handle_read_opening_tag_name('>');
             assert_eq!(context.state, State::ReadContent);
+        }
+
+        #[test]
+        fn test_notify_that_a_token_has_been_found_when_process_a_closing_chevron() {
+            let mut context = Context::from_state(State::ReadOpeningTagName);
+            context.handle_read_opening_tag_name('>');
+            assert!(context.token_has_been_found);
         }
 
         #[test]
@@ -243,10 +297,10 @@ mod tests {
         }
 
         #[test]
-        fn test_tag_name_is_amended_when_process_any_other_character() {
+        fn test_token_name_is_amended_when_process_any_other_character() {
             let mut context = Context::from_state(State::ReadOpeningTagName);
             context.handle_read_opening_tag_name('a');
-            assert_eq!(context.tag_name, "a");
+            assert_eq!(context.token_name, "a");
         }
     }
 
@@ -277,15 +331,21 @@ mod tests {
             context.handle_read_closing_tag_name('>');
             assert_eq!(context.state, State::ReadContent);
         }
-    
+
         #[test]
         fn test_next_state_when_process_any_other_character() {
             let mut context = Context::from_state(State::ReadClosingTagName);
             context.handle_read_closing_tag_name('a');
             assert_eq!(context.state, State::ReadClosingTagName);
         }
-    }
 
+        #[test]
+        fn test_token_name_is_amended_when_process_any_other_character() {
+            let mut context = Context::from_state(State::ReadClosingTagName);
+            context.handle_read_closing_tag_name('a');
+            assert_eq!(context.token_name, "a");
+        }
+    }
 
     mod handle_read_content {
         use super::{Context, State};
@@ -304,7 +364,6 @@ mod tests {
             assert_eq!(context.state, State::ReadText);
         }
     }
-    
 
     mod handle_read_text {
         use super::{Context, State};
@@ -317,13 +376,19 @@ mod tests {
         }
 
         #[test]
+        fn test_notify_a_token_has_been_found_when_process_an_opening_chevron() {
+            let mut context = Context::from_state(State::ReadText);
+            context.handle_read_text('<');
+            assert!(context.token_has_been_found);
+        }
+
+        #[test]
         fn test_next_state_when_process_any_other_character() {
             let mut context = Context::from_state(State::ReadText);
             context.handle_read_text('a');
             assert_eq!(context.state, State::ReadText);
         }
     }
-
 
     mod handle_read_opening_comment_or_doctype {
         use super::{Context, State};
@@ -349,7 +414,6 @@ mod tests {
             assert_eq!(context.state, State::ReadOpeningCommentOrDoctype);
         }
     }
-
 
     mod handle_read_opening_comment_dash {
         use super::{Context, State};
@@ -386,7 +450,6 @@ mod tests {
             assert_eq!(context.state, State::ReadCommentContent);
         }
     }
-
 
     mod handle_read_closing_comment {
         use super::{Context, State};
