@@ -1,19 +1,19 @@
 use crate::document::Document;
-use crate::parser::context::Context;
+use crate::parser::tokenizer::Tokenizer;
 
 fn parse(content: &str) -> Document {
-    let mut context = Context::new();
+    let mut tokenizer = Tokenizer::new();
     let document = Document::new();
 
     for c in content.chars() {
-        context.handle(c);
+        tokenizer.handle(c);
 
-        if context.token_has_been_found() {
-            let token_name = context.get_token_name();
+        if tokenizer.token_has_been_found() {
+            let token_name = tokenizer.get_token_name();
             println!("Token: {}", token_name);
-            let token_text_content = context.get_token_text_content();
+            let token_text_content = tokenizer.get_token_text_content();
             println!("Content: {}", token_text_content);
-            context.clear_token();
+            tokenizer.clear_token();
         }
 
         // Main idea on how to handle node creation.

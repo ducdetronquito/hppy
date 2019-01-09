@@ -1,20 +1,20 @@
 use crate::parser::state::State;
 
 
-pub struct Context {
+pub struct Tokenizer {
     state: State,
     token_has_been_found: bool,
     token_name: String,
     token_text_content: String,
 }
 
-impl Context {
+impl Tokenizer {
     pub fn new() -> Self {
-        Context::from_state(State::SeekOpeningTag)
+        Tokenizer::from_state(State::SeekOpeningTag)
     }
 
     pub fn from_state(state: State) -> Self {
-        Context {
+        Tokenizer {
             state: state,
             token_has_been_found: false,
             token_name: String::new(),
@@ -175,333 +175,333 @@ impl Context {
 
 #[cfg(test)]
 mod tests {
-    use super::{Context, State};
+    use super::{Tokenizer, State};
 
     mod clear_token {
-        use super::Context;
+        use super::Tokenizer;
 
         #[test]
         fn test_clear_every_token_related_buffer() {
-            let mut context = Context::new();
-            context.token_name.push_str("div");
-            context.token_text_content.push_str("Hello Hppy!");
-            context.clear_token();
+            let mut tokenizer = Tokenizer::new();
+            tokenizer.token_name.push_str("div");
+            tokenizer.token_text_content.push_str("Hello Hppy!");
+            tokenizer.clear_token();
 
-            assert_eq!(context.token_name.len(), 0);
-            assert_eq!(context.token_text_content.len(), 0);
+            assert_eq!(tokenizer.token_name.len(), 0);
+            assert_eq!(tokenizer.token_text_content.len(), 0);
         }
 
         #[test]
         fn test_clear_token_notification() {
-            let mut context = Context::new();
-            context.token_has_been_found = true;
-            context.clear_token();
+            let mut tokenizer = Tokenizer::new();
+            tokenizer.token_has_been_found = true;
+            tokenizer.clear_token();
 
-            assert!(context.token_has_been_found == false);
+            assert!(tokenizer.token_has_been_found == false);
         }
     }
 
     mod handle_opening_tag {
-        use super::{Context, State};
+        use super::{Tokenizer, State};
 
         #[test]
         fn test_next_state_when_process_an_opening_chevron() {
-            let mut context = Context::from_state(State::SeekOpeningTag);
-            context.handle_opening_tag('<');
-            assert_eq!(context.state, State::ReadTagName);
+            let mut tokenizer = Tokenizer::from_state(State::SeekOpeningTag);
+            tokenizer.handle_opening_tag('<');
+            assert_eq!(tokenizer.state, State::ReadTagName);
         }
 
         #[test]
         fn test_next_state_when_process_any_other_character() {
-            let mut context = Context::from_state(State::SeekOpeningTag);
-            context.handle_opening_tag('a');
-            assert_eq!(context.state, State::SeekOpeningTag);
+            let mut tokenizer = Tokenizer::from_state(State::SeekOpeningTag);
+            tokenizer.handle_opening_tag('a');
+            assert_eq!(tokenizer.state, State::SeekOpeningTag);
         }
     }
 
     mod handle_read_tag_name {
-        use super::{Context, State};
+        use super::{Tokenizer, State};
 
         #[test]
         fn test_next_state_when_process_an_exclamation_mark() {
-            let mut context = Context::from_state(State::ReadTagName);
-            context.handle_read_tag_name('!');
-            assert_eq!(context.state, State::ReadOpeningCommentOrDoctype);
+            let mut tokenizer = Tokenizer::from_state(State::ReadTagName);
+            tokenizer.handle_read_tag_name('!');
+            assert_eq!(tokenizer.state, State::ReadOpeningCommentOrDoctype);
         }
 
         #[test]
         fn test_token_name_is_not_amended_when_process_an_exclamation_mark() {
-            let mut context = Context::from_state(State::ReadTagName);
-            context.handle_read_tag_name('!');
-            assert_eq!(context.token_name, "");
+            let mut tokenizer = Tokenizer::from_state(State::ReadTagName);
+            tokenizer.handle_read_tag_name('!');
+            assert_eq!(tokenizer.token_name, "");
         }
 
         #[test]
         fn test_next_state_when_process_a_slash() {
-            let mut context = Context::from_state(State::ReadTagName);
-            context.handle_read_tag_name('/');
-            assert_eq!(context.state, State::ReadClosingTagName);
+            let mut tokenizer = Tokenizer::from_state(State::ReadTagName);
+            tokenizer.handle_read_tag_name('/');
+            assert_eq!(tokenizer.state, State::ReadClosingTagName);
         }
 
         #[test]
         fn test_token_name_is_amended_when_process_a_slash() {
-            let mut context = Context::from_state(State::ReadTagName);
-            context.handle_read_tag_name('/');
-            assert_eq!(context.token_name, "/");
+            let mut tokenizer = Tokenizer::from_state(State::ReadTagName);
+            tokenizer.handle_read_tag_name('/');
+            assert_eq!(tokenizer.token_name, "/");
         }
 
         #[test]
         fn test_next_state_when_process_any_other_character() {
-            let mut context = Context::from_state(State::ReadTagName);
-            context.handle_read_tag_name('a');
-            assert_eq!(context.state, State::ReadOpeningTagName);
+            let mut tokenizer = Tokenizer::from_state(State::ReadTagName);
+            tokenizer.handle_read_tag_name('a');
+            assert_eq!(tokenizer.state, State::ReadOpeningTagName);
         }
 
         #[test]
         fn test_token_name_is_amended_when_process_any_other_character() {
-            let mut context = Context::from_state(State::ReadTagName);
-            context.handle_read_tag_name('a');
-            assert_eq!(context.token_name, "a");
+            let mut tokenizer = Tokenizer::from_state(State::ReadTagName);
+            tokenizer.handle_read_tag_name('a');
+            assert_eq!(tokenizer.token_name, "a");
         }
     }
 
     mod handle_read_opening_tag_name {
-        use super::{Context, State};
+        use super::{Tokenizer, State};
 
         #[test]
         fn test_next_state_when_process_a_closing_chevron() {
-            let mut context = Context::from_state(State::ReadOpeningTagName);
-            context.handle_read_opening_tag_name('>');
-            assert_eq!(context.state, State::ReadContent);
+            let mut tokenizer = Tokenizer::from_state(State::ReadOpeningTagName);
+            tokenizer.handle_read_opening_tag_name('>');
+            assert_eq!(tokenizer.state, State::ReadContent);
         }
 
         #[test]
         fn test_notify_that_a_token_has_been_found_when_process_a_closing_chevron() {
-            let mut context = Context::from_state(State::ReadOpeningTagName);
-            context.handle_read_opening_tag_name('>');
-            assert!(context.token_has_been_found);
+            let mut tokenizer = Tokenizer::from_state(State::ReadOpeningTagName);
+            tokenizer.handle_read_opening_tag_name('>');
+            assert!(tokenizer.token_has_been_found);
         }
 
         #[test]
         fn test_next_state_when_process_a_whitespace() {
-            let mut context = Context::from_state(State::ReadOpeningTagName);
-            context.handle_read_opening_tag_name(' ');
-            assert_eq!(context.state, State::ReadAttributes);
+            let mut tokenizer = Tokenizer::from_state(State::ReadOpeningTagName);
+            tokenizer.handle_read_opening_tag_name(' ');
+            assert_eq!(tokenizer.state, State::ReadAttributes);
         }
 
         #[test]
         fn test_next_state_when_process_any_other_character() {
-            let mut context = Context::from_state(State::ReadOpeningTagName);
-            context.handle_read_opening_tag_name('a');
-            assert_eq!(context.state, State::ReadOpeningTagName);
+            let mut tokenizer = Tokenizer::from_state(State::ReadOpeningTagName);
+            tokenizer.handle_read_opening_tag_name('a');
+            assert_eq!(tokenizer.state, State::ReadOpeningTagName);
         }
 
         #[test]
         fn test_token_name_is_amended_when_process_any_other_character() {
-            let mut context = Context::from_state(State::ReadOpeningTagName);
-            context.handle_read_opening_tag_name('a');
-            assert_eq!(context.token_name, "a");
+            let mut tokenizer = Tokenizer::from_state(State::ReadOpeningTagName);
+            tokenizer.handle_read_opening_tag_name('a');
+            assert_eq!(tokenizer.token_name, "a");
         }
     }
 
     mod handle_read_attributes {
-        use super::{Context, State};
+        use super::{Tokenizer, State};
 
         #[test]
         fn test_next_state_when_process_a_closing_chevron() {
-            let mut context = Context::from_state(State::ReadAttributes);
-            context.handle_read_attributes('>');
-            assert_eq!(context.state, State::ReadContent);
+            let mut tokenizer = Tokenizer::from_state(State::ReadAttributes);
+            tokenizer.handle_read_attributes('>');
+            assert_eq!(tokenizer.state, State::ReadContent);
         }
 
         #[test]
         fn test_next_state_when_process_any_other_character() {
-            let mut context = Context::from_state(State::ReadAttributes);
-            context.handle_read_attributes('a');
-            assert_eq!(context.state, State::ReadAttributes);
+            let mut tokenizer = Tokenizer::from_state(State::ReadAttributes);
+            tokenizer.handle_read_attributes('a');
+            assert_eq!(tokenizer.state, State::ReadAttributes);
         }
     }
 
     mod handle_read_closing_tag_name {
-        use super::{Context, State};
+        use super::{Tokenizer, State};
 
         #[test]
         fn test_next_state_when_process_a_closing_chevron() {
-            let mut context = Context::from_state(State::ReadClosingTagName);
-            context.handle_read_closing_tag_name('>');
-            assert_eq!(context.state, State::ReadContent);
+            let mut tokenizer = Tokenizer::from_state(State::ReadClosingTagName);
+            tokenizer.handle_read_closing_tag_name('>');
+            assert_eq!(tokenizer.state, State::ReadContent);
         }
 
         #[test]
         fn test_next_state_when_process_any_other_character() {
-            let mut context = Context::from_state(State::ReadClosingTagName);
-            context.handle_read_closing_tag_name('a');
-            assert_eq!(context.state, State::ReadClosingTagName);
+            let mut tokenizer = Tokenizer::from_state(State::ReadClosingTagName);
+            tokenizer.handle_read_closing_tag_name('a');
+            assert_eq!(tokenizer.state, State::ReadClosingTagName);
         }
 
         #[test]
         fn test_token_name_is_amended_when_process_any_other_character() {
-            let mut context = Context::from_state(State::ReadClosingTagName);
-            context.handle_read_closing_tag_name('a');
-            assert_eq!(context.token_name, "a");
+            let mut tokenizer = Tokenizer::from_state(State::ReadClosingTagName);
+            tokenizer.handle_read_closing_tag_name('a');
+            assert_eq!(tokenizer.token_name, "a");
         }
     }
 
     mod handle_read_content {
-        use super::{Context, State};
+        use super::{Tokenizer, State};
 
         #[test]
         fn test_next_state_when_process_an_opening_chevron() {
-            let mut context = Context::from_state(State::ReadContent);
-            context.handle_read_content('<');
-            assert_eq!(context.state, State::ReadTagName);
+            let mut tokenizer = Tokenizer::from_state(State::ReadContent);
+            tokenizer.handle_read_content('<');
+            assert_eq!(tokenizer.state, State::ReadTagName);
         }
 
         #[test]
         fn test_next_state_when_process_any_other_character() {
-            let mut context = Context::from_state(State::ReadContent);
-            context.handle_read_content('a');
-            assert_eq!(context.state, State::ReadText);
+            let mut tokenizer = Tokenizer::from_state(State::ReadContent);
+            tokenizer.handle_read_content('a');
+            assert_eq!(tokenizer.state, State::ReadText);
         }
     }
 
     mod handle_read_text {
-        use super::{Context, State};
+        use super::{Tokenizer, State};
 
         #[test]
         fn test_next_state_when_process_an_opening_chevron() {
-            let mut context = Context::from_state(State::ReadText);
-            context.handle_read_text('<');
-            assert_eq!(context.state, State::ReadTagName);
+            let mut tokenizer = Tokenizer::from_state(State::ReadText);
+            tokenizer.handle_read_text('<');
+            assert_eq!(tokenizer.state, State::ReadTagName);
         }
 
         #[test]
         fn test_notify_a_token_has_been_found_when_process_an_opening_chevron() {
-            let mut context = Context::from_state(State::ReadText);
-            context.handle_read_text('<');
-            assert!(context.token_has_been_found);
+            let mut tokenizer = Tokenizer::from_state(State::ReadText);
+            tokenizer.handle_read_text('<');
+            assert!(tokenizer.token_has_been_found);
         }
 
         #[test]
         fn test_next_state_when_process_any_other_character() {
-            let mut context = Context::from_state(State::ReadText);
-            context.handle_read_text('a');
-            assert_eq!(context.state, State::ReadText);
+            let mut tokenizer = Tokenizer::from_state(State::ReadText);
+            tokenizer.handle_read_text('a');
+            assert_eq!(tokenizer.state, State::ReadText);
         }
     }
 
     mod handle_read_opening_comment_or_doctype {
-        use super::{Context, State};
+        use super::{Tokenizer, State};
 
         #[test]
         fn test_next_state_when_process_a_dash() {
-            let mut context = Context::from_state(State::ReadOpeningCommentOrDoctype);
-            context.handle_read_opening_comment_or_doctype('-');
-            assert_eq!(context.state, State::ReadOpeningCommentDash);
+            let mut tokenizer = Tokenizer::from_state(State::ReadOpeningCommentOrDoctype);
+            tokenizer.handle_read_opening_comment_or_doctype('-');
+            assert_eq!(tokenizer.state, State::ReadOpeningCommentDash);
         }
 
         #[test]
         fn test_next_state_when_process_a_d() {
-            let mut context = Context::from_state(State::ReadOpeningCommentOrDoctype);
-            context.handle_read_opening_comment_or_doctype('D');
-            assert_eq!(context.state, State::ReadDoctype);
+            let mut tokenizer = Tokenizer::from_state(State::ReadOpeningCommentOrDoctype);
+            tokenizer.handle_read_opening_comment_or_doctype('D');
+            assert_eq!(tokenizer.state, State::ReadDoctype);
         }
 
         #[test]
         fn test_next_state_when_process_any_other_character() {
-            let mut context = Context::from_state(State::ReadOpeningCommentOrDoctype);
-            context.handle_read_opening_comment_or_doctype('a');
-            assert_eq!(context.state, State::ReadOpeningCommentOrDoctype);
+            let mut tokenizer = Tokenizer::from_state(State::ReadOpeningCommentOrDoctype);
+            tokenizer.handle_read_opening_comment_or_doctype('a');
+            assert_eq!(tokenizer.state, State::ReadOpeningCommentOrDoctype);
         }
     }
 
     mod handle_read_opening_comment_dash {
-        use super::{Context, State};
+        use super::{Tokenizer, State};
 
         #[test]
         fn test_next_state_when_process_a_dash() {
-            let mut context = Context::from_state(State::ReadOpeningCommentDash);
-            context.handle_read_opening_comment_dash('-');
-            assert_eq!(context.state, State::ReadCommentContent);
+            let mut tokenizer = Tokenizer::from_state(State::ReadOpeningCommentDash);
+            tokenizer.handle_read_opening_comment_dash('-');
+            assert_eq!(tokenizer.state, State::ReadCommentContent);
         }
 
         #[test]
         fn test_next_state_when_process_any_other_character() {
-            let mut context = Context::from_state(State::ReadOpeningCommentDash);
-            context.handle_read_opening_comment_dash('a');
-            assert_eq!(context.state, State::Done);
+            let mut tokenizer = Tokenizer::from_state(State::ReadOpeningCommentDash);
+            tokenizer.handle_read_opening_comment_dash('a');
+            assert_eq!(tokenizer.state, State::Done);
         }
     }
 
     mod handle_read_comment_content {
-        use super::{Context, State};
+        use super::{Tokenizer, State};
 
         #[test]
         fn test_next_state_when_process_a_dash() {
-            let mut context = Context::from_state(State::ReadCommentContent);
-            context.handle_read_comment_content('-');
-            assert_eq!(context.state, State::ReadClosingComment);
+            let mut tokenizer = Tokenizer::from_state(State::ReadCommentContent);
+            tokenizer.handle_read_comment_content('-');
+            assert_eq!(tokenizer.state, State::ReadClosingComment);
         }
 
         #[test]
         fn test_next_state_when_process_any_other_character() {
-            let mut context = Context::from_state(State::ReadCommentContent);
-            context.handle_read_comment_content('a');
-            assert_eq!(context.state, State::ReadCommentContent);
+            let mut tokenizer = Tokenizer::from_state(State::ReadCommentContent);
+            tokenizer.handle_read_comment_content('a');
+            assert_eq!(tokenizer.state, State::ReadCommentContent);
         }
     }
 
     mod handle_read_closing_comment {
-        use super::{Context, State};
+        use super::{Tokenizer, State};
 
         #[test]
         fn test_next_state_when_process_a_dash() {
-            let mut context = Context::from_state(State::ReadClosingComment);
-            context.handle_read_closing_comment('-');
-            assert_eq!(context.state, State::ReadClosingCommentDash);
+            let mut tokenizer = Tokenizer::from_state(State::ReadClosingComment);
+            tokenizer.handle_read_closing_comment('-');
+            assert_eq!(tokenizer.state, State::ReadClosingCommentDash);
         }
 
         #[test]
         fn test_next_state_when_process_any_other_character() {
-            let mut context = Context::from_state(State::ReadClosingComment);
-            context.handle_read_closing_comment('a');
-            assert_eq!(context.state, State::ReadCommentContent);
+            let mut tokenizer = Tokenizer::from_state(State::ReadClosingComment);
+            tokenizer.handle_read_closing_comment('a');
+            assert_eq!(tokenizer.state, State::ReadCommentContent);
         }
     }
 
     mod handle_read_closing_comment_dash {
-        use super::{Context, State};
+        use super::{Tokenizer, State};
 
         #[test]
         fn test_next_state_when_process_a_closing_chevron() {
-            let mut context = Context::from_state(State::ReadClosingCommentDash);
-            context.handle_read_closing_comment_dash('>');
-            assert_eq!(context.state, State::ReadContent);
+            let mut tokenizer = Tokenizer::from_state(State::ReadClosingCommentDash);
+            tokenizer.handle_read_closing_comment_dash('>');
+            assert_eq!(tokenizer.state, State::ReadContent);
         }
 
         #[test]
         fn test_next_state_when_process_with_any_other_character() {
-            let mut context = Context::from_state(State::ReadClosingCommentDash);
-            context.handle_read_closing_comment_dash('a');
-            assert_eq!(context.state, State::ReadCommentContent);
+            let mut tokenizer = Tokenizer::from_state(State::ReadClosingCommentDash);
+            tokenizer.handle_read_closing_comment_dash('a');
+            assert_eq!(tokenizer.state, State::ReadCommentContent);
         }
     }
 
     mod handle_read_doctype {
-        use super::{Context, State};
+        use super::{Tokenizer, State};
 
         #[test]
         fn test_next_state_when_process_a_closing_chevron() {
-            let mut context = Context::from_state(State::ReadDoctype);
-            context.handle_read_doctype('>');
-            assert_eq!(context.state, State::ReadContent);
+            let mut tokenizer = Tokenizer::from_state(State::ReadDoctype);
+            tokenizer.handle_read_doctype('>');
+            assert_eq!(tokenizer.state, State::ReadContent);
         }
 
         #[test]
         fn test_next_state_when_process_any_other_character() {
-            let mut context = Context::from_state(State::ReadDoctype);
-            context.handle_read_doctype('a');
-            assert_eq!(context.state, State::ReadDoctype);
+            let mut tokenizer = Tokenizer::from_state(State::ReadDoctype);
+            tokenizer.handle_read_doctype('a');
+            assert_eq!(tokenizer.state, State::ReadDoctype);
         }
     }
 }
