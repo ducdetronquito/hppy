@@ -2,22 +2,37 @@
 enum Tag {
     Body,
     Div,
-    P
+    P,
+    Text,
+    Undefined,
 }
 
+impl Tag {
+    pub fn from_name(name: &str) -> Self {
+        match name {
+            "body" => Tag::Body,
+            "div" => Tag::Div,
+            "p" => Tag::P,
+            "" => Tag::Text,
+            _ => Tag::Undefined
+        }
+    }
+}
 
-struct Node {
+#[derive(Debug)]
+pub struct Node {
     tag: Tag,
+    text_content: String,
     id: i32,
 }
 
 impl Node {
 
-    fn name(&self) -> &str {
-        match self.tag {
-            Tag::Body => "I am a body !",
-            Tag::Div => "I am a div !",
-            Tag::P => "I am a paragraph !",
+    pub fn new(tag_name: &str, text_content: &str) -> Self {
+        Node {
+            tag: Tag::from_name(tag_name),
+            text_content: text_content.to_string(),
+            id: -1
         }
     }
 }
@@ -25,20 +40,12 @@ impl Node {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{Node, Tag};
 
     #[test]
-    fn test_node_creation() {
-        let node = Node {tag: Tag::Body, id: 2};
-
-        assert_eq!(node.id, 2);
-        assert_eq!(node.tag, Tag::Body);
-    }
-
-    #[test]
-    fn test_node_name() {
-        let node = Node {tag: Tag::Body, id: 2};
-
-        assert_eq!(node.name(), "I am a body !");
+    fn test_new_node() {
+        let node = Node::new("div", "Hello Hppy!");
+        assert_eq!(node.tag, Tag::Div);
+        assert_eq!(node.text_content, "Hello Hppy!")
     }
 }

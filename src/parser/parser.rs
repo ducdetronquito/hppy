@@ -1,9 +1,10 @@
 use crate::document::Document;
+use crate::node::Node;
 use crate::parser::tokenizer::Tokenizer;
 
 fn parse(content: &str) -> Document {
     let mut tokenizer = Tokenizer::new();
-    let document = Document::new();
+    let mut document = Document::new();
 
     for c in content.chars() {
         tokenizer.handle(c);
@@ -13,18 +14,10 @@ fn parse(content: &str) -> Document {
             println!("Token: {}", token_name);
             let token_text_content = tokenizer.get_token_text_content();
             println!("Content: {}", token_text_content);
+            let node = Node::new(token_name, token_text_content);
+            document.add(node);
             tokenizer.clear_token();
         }
-
-        // Main idea on how to handle node creation.
-        //
-        // if context.token_has_been_found() {
-        //     tag_name = context.get_tag_name();
-        //     content = context.get_content();
-        //     attributs = context.get_attributes();
-        //     document.add(tag_name, content, attributes);
-        // }
-        //
         // Maybe the token_stack should be managed by the parse function and not the parsing Context.
     }
 
@@ -33,11 +26,12 @@ fn parse(content: &str) -> Document {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::parse;
 
     #[test]
     fn test_parse() {
-        parse("<div><p>Hello Hppy</p></div>");
+        let document = parse("<div><p>Hello Hppy</p></div>");
+        println!("{:?}", document.nodes);
         assert_eq!(2 + 2, 4);
     }
 
