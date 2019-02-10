@@ -23,24 +23,23 @@ impl Tag {
 pub struct Node {
     pub tag: Tag,
     pub text_content: String,
-    id: i32,
+    pub index: i32,
 }
 
 impl Node {
-    pub fn tag(tag_name: &str) -> Self {
+    fn new(tag: Tag, text_content: &str) -> Self {
         Node {
-            tag: Tag::from_name(tag_name),
-            text_content: String::new(),
-            id: -1,
+            tag: tag,
+            text_content: text_content.to_string(),
+            index: -1,
         }
+    }
+    pub fn tag(tag_name: &str) -> Self {
+        Node::new(Tag::from_name(tag_name), "")
     }
 
     pub fn text(text_content: &str) -> Self {
-        Node {
-            tag: Tag::Text,
-            text_content: text_content.to_string(),
-            id: -1,
-        }
+        Node::new(Tag::Text, text_content)
     }
 }
 

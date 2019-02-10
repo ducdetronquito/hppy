@@ -9,12 +9,17 @@ impl Document {
         Document { nodes: Vec::new() }
     }
 
+    fn push(&mut self, mut node: Node) {
+        node.index = self.nodes.len() as i32;
+        self.nodes.push(node);
+    }
+
     pub fn push_tag(&mut self, tag_name: &str) {
-        self.nodes.push(Node::tag(tag_name));
+        self.push(Node::tag(tag_name));
     }
 
     pub fn push_text(&mut self, text_content: &str) {
-        self.nodes.push(Node::text(text_content));
+        self.push(Node::text(text_content));
     }
 }
 
@@ -28,6 +33,7 @@ mod tests {
         document.push_tag("div");
         assert_eq!(document.nodes.len(), 1);
         assert_eq!(document.nodes[0].tag, Tag::Div);
+        assert_eq!(document.nodes[0].index, 0);
     }
 
     #[test]
@@ -37,5 +43,6 @@ mod tests {
         assert_eq!(document.nodes.len(), 1);
         assert_eq!(document.nodes[0].tag, Tag::Text);
         assert_eq!(document.nodes[0].text_content, "Hello Hppy!");
+        assert_eq!(document.nodes[0].index, 0);
     }
 }
