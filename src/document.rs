@@ -9,7 +9,7 @@ impl Document {
         Document { nodes: Vec::new() }
     }
 
-    pub fn add(&mut self, node: Node) {
+    pub fn push(&mut self, node: Node) {
         self.nodes.push(node);
     }
 }
@@ -19,10 +19,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_add() {
+    fn test_push() {
         let mut document = Document::new();
-        let node = Node::new("div", "");
-        document.add(node);
+        let node = Node::tag("div");
+        document.push(node);
         assert_eq!(document.nodes.len(), 1);
     }
 }

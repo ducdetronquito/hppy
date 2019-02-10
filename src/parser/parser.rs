@@ -1,24 +1,19 @@
 use crate::document::Document;
-use crate::node::Node;
+use crate::node::{Node, Tag};
 use crate::parser::tokenizer::Tokenizer;
 
 fn parse(content: &str) -> Document {
-    let mut tokenizer = Tokenizer::new();
     let mut document = Document::new();
 
-    for c in content.chars() {
-        tokenizer.handle(c);
-
-        if tokenizer.token_has_been_found() {
-            let token_name = tokenizer.get_token_name();
-            println!("Token: {}", token_name);
-            let token_text_content = tokenizer.get_token_text_content();
-            println!("Content: {}", token_text_content);
-            let node = Node::new(token_name, token_text_content);
-            document.add(node);
-            tokenizer.clear_token();
+    let mut node;
+    for token in Tokenizer::get_tokens(content) {
+        if token.is_tag() {
+            node = Node::tag(&token.content);
+        } else {
+            node = Node::text(&token.content);
         }
-        // Maybe the token_stack should be managed by the parse function and not the parsing Context.
+
+        document.push(node);
     }
 
     return document;
@@ -26,13 +21,15 @@ fn parse(content: &str) -> Document {
 
 #[cfg(test)]
 mod tests {
-    use super::parse;
+    use super::{parse, Tag};
 
     #[test]
     fn test_parse() {
-        let document = parse("<div><p>Hello Hppy</p></div>");
-        println!("{:?}", document.nodes);
-        assert_eq!(2 + 2, 4);
+        let document = parse("<div>Hello Hppy</div>");
+        assert_eq!(document.nodes.len(), 2);
+        assert_eq!(document.nodes[0].tag, Tag::Div);
+        assert_eq!(document.nodes[0].text_content, "");
+        assert_eq!(document.nodes[1].tag, Tag::Text);
+        assert_eq!(document.nodes[1].text_content, "Hello Hppy");
     }
-
 }

@@ -1,11 +1,41 @@
 use crate::parser::state::State;
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum TokenKind {
+    Tag,
+    Text,
+}
+
+#[derive(Clone)]
+pub struct Token {
+    kind: TokenKind,
+    pub content: String,
+}
+
+impl Token {
+    fn tag() -> Self {
+        Token {
+            kind: TokenKind::Tag,
+            content: String::new(),
+        }
+    }
+
+    fn text() -> Self {
+        Token {
+            kind: TokenKind::Text,
+            content: String::new(),
+        }
+    }
+
+    pub fn is_tag(&self) -> bool {
+        self.kind == TokenKind::Tag
+    }
+}
 
 pub struct Tokenizer {
     state: State,
     token_has_been_found: bool,
-    token_name: String,
-    token_text_content: String,
+    token: Token,
 }
 
 impl Tokenizer {
@@ -17,9 +47,23 @@ impl Tokenizer {
         Tokenizer {
             state: state,
             token_has_been_found: false,
-            token_name: String::new(),
-            token_text_content: String::new(),
+            token: Token::tag(),
         }
+    }
+
+    pub fn get_tokens(content: &str) -> Vec<Token> {
+        let mut tokenizer = Tokenizer::from_state(State::SeekOpeningTag);
+        let mut tokens = Vec::new();
+
+        for c in content.chars() {
+            if tokenizer.token_has_been_found() {
+                tokens.push(tokenizer.token.clone());
+                tokenizer.clear_token();
+            }
+            tokenizer.handle(c);
+        }
+
+        tokens
     }
 
     pub fn handle(&mut self, character: char) {
@@ -47,22 +91,14 @@ impl Tokenizer {
         self.token_has_been_found
     }
 
-    pub fn get_token_name(&self) -> &str {
-        &self.token_name
-    }
-
-    pub fn get_token_text_content(&self) -> &str {
-        &self.token_text_content
-    }
-
     pub fn clear_token(&mut self) {
-        self.token_name.clear();
-        self.token_text_content.clear();
+        self.token.content.clear();
         self.token_has_been_found = false;
     }
 
     fn handle_opening_tag(&mut self, character: char) {
         if character == '<' {
+            self.token = Token::tag();
             self.state = State::ReadTagName;
         }
     }
@@ -76,7 +112,7 @@ impl Tokenizer {
             } else {
                 self.state = State::ReadOpeningTagName;
             }
-            self.token_name.push(character);
+            self.token.content.push(character);
         }
     }
 
@@ -87,7 +123,7 @@ impl Tokenizer {
         } else if character == ' ' {
             self.state = State::ReadAttributes;
         } else {
-            self.token_name.push(character);
+            self.token.content.push(character);
         }
     }
 
@@ -106,7 +142,7 @@ impl Tokenizer {
             // Create a node from the tag buffer.
             self.state = State::ReadContent;
         } else {
-            self.token_name.push(character);
+            self.token.content.push(character);
         }
     }
 
@@ -114,7 +150,8 @@ impl Tokenizer {
         if character == '<' {
             self.state = State::ReadTagName;
         } else {
-            self.token_text_content.push(character);
+            self.token = Token::text();
+            self.token.content.push(character);
             self.state = State::ReadText
         }
     }
@@ -124,7 +161,7 @@ impl Tokenizer {
             self.token_has_been_found = true;
             self.state = State::ReadTagName;
         } else {
-            self.token_text_content.push(character);
+            self.token.content.push(character);
         }
     }
 
@@ -175,7 +212,21 @@ impl Tokenizer {
 
 #[cfg(test)]
 mod tests {
-    use super::{Tokenizer, State};
+    use super::{State, TokenKind, Tokenizer};
+
+    mod get_tokens {
+        use super::{TokenKind, Tokenizer};
+
+        #[test]
+        fn get_tokens() {
+            let tokens = Tokenizer::get_tokens("<div>Hello Hppy</div>");
+            assert_eq!(tokens.len(), 2);
+            assert_eq!(tokens[0].kind, TokenKind::Tag);
+            assert_eq!(tokens[0].content, "div");
+            assert_eq!(tokens[1].kind, TokenKind::Text);
+            assert_eq!(tokens[1].content, "Hello Hppy");
+        }
+    }
 
     mod clear_token {
         use super::Tokenizer;
@@ -183,12 +234,10 @@ mod tests {
         #[test]
         fn test_clear_every_token_related_buffer() {
             let mut tokenizer = Tokenizer::new();
-            tokenizer.token_name.push_str("div");
-            tokenizer.token_text_content.push_str("Hello Hppy!");
+            tokenizer.token.content.push_str("div");
             tokenizer.clear_token();
 
-            assert_eq!(tokenizer.token_name.len(), 0);
-            assert_eq!(tokenizer.token_text_content.len(), 0);
+            assert_eq!(tokenizer.token.content.len(), 0);
         }
 
         #[test]
@@ -202,7 +251,7 @@ mod tests {
     }
 
     mod handle_opening_tag {
-        use super::{Tokenizer, State};
+        use super::{State, Tokenizer};
 
         #[test]
         fn test_next_state_when_process_an_opening_chevron() {
@@ -220,7 +269,7 @@ mod tests {
     }
 
     mod handle_read_tag_name {
-        use super::{Tokenizer, State};
+        use super::{State, Tokenizer};
 
         #[test]
         fn test_next_state_when_process_an_exclamation_mark() {
@@ -233,7 +282,7 @@ mod tests {
         fn test_token_name_is_not_amended_when_process_an_exclamation_mark() {
             let mut tokenizer = Tokenizer::from_state(State::ReadTagName);
             tokenizer.handle_read_tag_name('!');
-            assert_eq!(tokenizer.token_name, "");
+            assert_eq!(tokenizer.token.content, "");
         }
 
         #[test]
@@ -247,7 +296,7 @@ mod tests {
         fn test_token_name_is_amended_when_process_a_slash() {
             let mut tokenizer = Tokenizer::from_state(State::ReadTagName);
             tokenizer.handle_read_tag_name('/');
-            assert_eq!(tokenizer.token_name, "/");
+            assert_eq!(tokenizer.token.content, "/");
         }
 
         #[test]
@@ -261,12 +310,12 @@ mod tests {
         fn test_token_name_is_amended_when_process_any_other_character() {
             let mut tokenizer = Tokenizer::from_state(State::ReadTagName);
             tokenizer.handle_read_tag_name('a');
-            assert_eq!(tokenizer.token_name, "a");
+            assert_eq!(tokenizer.token.content, "a");
         }
     }
 
     mod handle_read_opening_tag_name {
-        use super::{Tokenizer, State};
+        use super::{State, Tokenizer};
 
         #[test]
         fn test_next_state_when_process_a_closing_chevron() {
@@ -300,12 +349,12 @@ mod tests {
         fn test_token_name_is_amended_when_process_any_other_character() {
             let mut tokenizer = Tokenizer::from_state(State::ReadOpeningTagName);
             tokenizer.handle_read_opening_tag_name('a');
-            assert_eq!(tokenizer.token_name, "a");
+            assert_eq!(tokenizer.token.content, "a");
         }
     }
 
     mod handle_read_attributes {
-        use super::{Tokenizer, State};
+        use super::{State, Tokenizer};
 
         #[test]
         fn test_next_state_when_process_a_closing_chevron() {
@@ -323,7 +372,7 @@ mod tests {
     }
 
     mod handle_read_closing_tag_name {
-        use super::{Tokenizer, State};
+        use super::{State, Tokenizer};
 
         #[test]
         fn test_next_state_when_process_a_closing_chevron() {
@@ -343,12 +392,12 @@ mod tests {
         fn test_token_name_is_amended_when_process_any_other_character() {
             let mut tokenizer = Tokenizer::from_state(State::ReadClosingTagName);
             tokenizer.handle_read_closing_tag_name('a');
-            assert_eq!(tokenizer.token_name, "a");
+            assert_eq!(tokenizer.token.content, "a");
         }
     }
 
     mod handle_read_content {
-        use super::{Tokenizer, State};
+        use super::{State, TokenKind, Tokenizer};
 
         #[test]
         fn test_next_state_when_process_an_opening_chevron() {
@@ -363,10 +412,24 @@ mod tests {
             tokenizer.handle_read_content('a');
             assert_eq!(tokenizer.state, State::ReadText);
         }
+
+        #[test]
+        fn test_token_type_is_set_to_text_when_process_any_other_character() {
+            let mut tokenizer = Tokenizer::from_state(State::ReadContent);
+            tokenizer.handle_read_content('a');
+            assert_eq!(tokenizer.token.kind, TokenKind::Text);
+        }
+
+        #[test]
+        fn test_token_name_is_amended_when_process_any_other_character() {
+            let mut tokenizer = Tokenizer::from_state(State::ReadContent);
+            tokenizer.handle_read_content('a');
+            assert_eq!(tokenizer.token.content, "a");
+        }
     }
 
     mod handle_read_text {
-        use super::{Tokenizer, State};
+        use super::{State, Tokenizer};
 
         #[test]
         fn test_next_state_when_process_an_opening_chevron() {
@@ -388,10 +451,17 @@ mod tests {
             tokenizer.handle_read_text('a');
             assert_eq!(tokenizer.state, State::ReadText);
         }
+
+        #[test]
+        fn test_token_name_is_amended_when_process_any_other_character() {
+            let mut tokenizer = Tokenizer::from_state(State::ReadText);
+            tokenizer.handle_read_text('a');
+            assert_eq!(tokenizer.token.content, "a");
+        }
     }
 
     mod handle_read_opening_comment_or_doctype {
-        use super::{Tokenizer, State};
+        use super::{State, Tokenizer};
 
         #[test]
         fn test_next_state_when_process_a_dash() {
@@ -416,7 +486,7 @@ mod tests {
     }
 
     mod handle_read_opening_comment_dash {
-        use super::{Tokenizer, State};
+        use super::{State, Tokenizer};
 
         #[test]
         fn test_next_state_when_process_a_dash() {
@@ -434,7 +504,7 @@ mod tests {
     }
 
     mod handle_read_comment_content {
-        use super::{Tokenizer, State};
+        use super::{State, Tokenizer};
 
         #[test]
         fn test_next_state_when_process_a_dash() {
@@ -452,7 +522,7 @@ mod tests {
     }
 
     mod handle_read_closing_comment {
-        use super::{Tokenizer, State};
+        use super::{State, Tokenizer};
 
         #[test]
         fn test_next_state_when_process_a_dash() {
@@ -470,7 +540,7 @@ mod tests {
     }
 
     mod handle_read_closing_comment_dash {
-        use super::{Tokenizer, State};
+        use super::{State, Tokenizer};
 
         #[test]
         fn test_next_state_when_process_a_closing_chevron() {
@@ -488,7 +558,7 @@ mod tests {
     }
 
     mod handle_read_doctype {
-        use super::{Tokenizer, State};
+        use super::{State, Tokenizer};
 
         #[test]
         fn test_next_state_when_process_a_closing_chevron() {
