@@ -1,19 +1,16 @@
 use crate::document::Document;
-use crate::node::{Node, Tag};
+use crate::node::Tag;
 use crate::parser::tokenizer::Tokenizer;
 
 fn parse(content: &str) -> Document {
     let mut document = Document::new();
 
-    let mut node;
     for token in Tokenizer::get_tokens(content) {
         if token.is_tag() {
-            node = Node::tag(&token.content);
+            document.push_tag(&token.content);
         } else {
-            node = Node::text(&token.content);
+            document.push_text(&token.content);
         }
-
-        document.push(node);
     }
 
     return document;
