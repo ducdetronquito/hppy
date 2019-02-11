@@ -9,7 +9,7 @@ impl Document {
         Document { nodes: Vec::new() }
     }
 
-    fn push(&mut self, mut node: Node) {
+    pub fn push(&mut self, mut node: Node) {
         node.index = self.nodes.len() as i32;
         self.nodes.push(node);
     }

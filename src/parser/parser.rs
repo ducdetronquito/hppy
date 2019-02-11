@@ -1,15 +1,22 @@
 use crate::document::Document;
-use crate::node::Tag;
+use crate::node::{Node, Tag};
 use crate::parser::tokenizer::Tokenizer;
 
 fn parse(content: &str) -> Document {
     let mut document = Document::new();
+    let mut scopes = Vec::new();
 
     for token in Tokenizer::get_tokens(content) {
-        if token.is_opening_tag() {
-            document.push_tag(&token.content);
-        } else if token.is_text() {
+        if token.is_text() {
             document.push_text(&token.content);
+            continue;
+        }
+        let node = Node::tag(&token.content);
+        if token.is_opening_tag() {
+            let scope = node.clone();
+            scopes.push(scope);
+            document.push(node);
+        } else if token.is_closing_tag() {
         }
     }
 

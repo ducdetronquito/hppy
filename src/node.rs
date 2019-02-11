@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Tag {
     Body,
     Div,
@@ -19,7 +19,7 @@ impl Tag {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Node {
     pub tag: Tag,
     pub text_content: String,

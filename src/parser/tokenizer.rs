@@ -39,6 +39,10 @@ impl Token {
         self.kind == TokenKind::OpeningTag
     }
 
+    pub fn is_closing_tag(&self) -> bool {
+        self.kind == TokenKind::ClosingTag
+    }
+
     pub fn is_text(&self) -> bool {
         self.kind == TokenKind::Text
     }
