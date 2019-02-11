@@ -6,9 +6,9 @@ fn parse(content: &str) -> Document {
     let mut document = Document::new();
 
     for token in Tokenizer::get_tokens(content) {
-        if token.is_tag() {
+        if token.is_opening_tag() {
             document.push_tag(&token.content);
-        } else {
+        } else if token.is_text() {
             document.push_text(&token.content);
         }
     }

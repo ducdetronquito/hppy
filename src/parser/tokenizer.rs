@@ -2,7 +2,8 @@ use crate::parser::state::State;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenKind {
-    Tag,
+    OpeningTag,
+    ClosingTag,
     Text,
 }
 
@@ -13,9 +14,16 @@ pub struct Token {
 }
 
 impl Token {
-    fn tag() -> Self {
+    fn opening_tag() -> Self {
         Token {
-            kind: TokenKind::Tag,
+            kind: TokenKind::OpeningTag,
+            content: String::new(),
+        }
+    }
+
+    fn closing_tag() -> Self {
+        Token {
+            kind: TokenKind::ClosingTag,
             content: String::new(),
         }
     }
@@ -27,8 +35,12 @@ impl Token {
         }
     }
 
-    pub fn is_tag(&self) -> bool {
-        self.kind == TokenKind::Tag
+    pub fn is_opening_tag(&self) -> bool {
+        self.kind == TokenKind::OpeningTag
+    }
+
+    pub fn is_text(&self) -> bool {
+        self.kind == TokenKind::Text
     }
 }
 
@@ -47,7 +59,7 @@ impl Tokenizer {
         Tokenizer {
             state: state,
             token_has_been_found: false,
-            token: Token::tag(),
+            token: Token::opening_tag(),
         }
     }
 
@@ -56,11 +68,11 @@ impl Tokenizer {
         let mut tokens = Vec::new();
 
         for c in content.chars() {
+            tokenizer.handle(c);
             if tokenizer.token_has_been_found() {
                 tokens.push(tokenizer.token.clone());
                 tokenizer.clear_token();
             }
-            tokenizer.handle(c);
         }
 
         tokens
@@ -98,7 +110,6 @@ impl Tokenizer {
 
     fn handle_opening_tag(&mut self, character: char) {
         if character == '<' {
-            self.token = Token::tag();
             self.state = State::ReadTagName;
         }
     }
@@ -108,11 +119,13 @@ impl Tokenizer {
             self.state = State::ReadOpeningCommentOrDoctype;
         } else {
             if character == '/' {
+                self.token = Token::closing_tag();
                 self.state = State::ReadClosingTagName;
             } else {
+                self.token = Token::opening_tag();
+                self.token.content.push(character);
                 self.state = State::ReadOpeningTagName;
             }
-            self.token.content.push(character);
         }
     }
 
@@ -139,7 +152,7 @@ impl Tokenizer {
 
     fn handle_read_closing_tag_name(&mut self, character: char) {
         if character == '>' {
-            // Create a node from the tag buffer.
+            self.token_has_been_found = true;
             self.state = State::ReadContent;
         } else {
             self.token.content.push(character);
@@ -220,11 +233,13 @@ mod tests {
         #[test]
         fn get_tokens() {
             let tokens = Tokenizer::get_tokens("<div>Hello Hppy</div>");
-            assert_eq!(tokens.len(), 2);
-            assert_eq!(tokens[0].kind, TokenKind::Tag);
+            assert_eq!(tokens.len(), 3);
+            assert_eq!(tokens[0].kind, TokenKind::OpeningTag);
             assert_eq!(tokens[0].content, "div");
             assert_eq!(tokens[1].kind, TokenKind::Text);
             assert_eq!(tokens[1].content, "Hello Hppy");
+            assert_eq!(tokens[2].kind, TokenKind::ClosingTag);
+            assert_eq!(tokens[2].content, "div");
         }
     }
 
@@ -269,7 +284,7 @@ mod tests {
     }
 
     mod handle_read_tag_name {
-        use super::{State, Tokenizer};
+        use super::{State, TokenKind, Tokenizer};
 
         #[test]
         fn test_next_state_when_process_an_exclamation_mark() {
@@ -279,7 +294,7 @@ mod tests {
         }
 
         #[test]
-        fn test_token_name_is_not_amended_when_process_an_exclamation_mark() {
+        fn test_token_content_is_empty_when_process_an_exclamation_mark() {
             let mut tokenizer = Tokenizer::from_state(State::ReadTagName);
             tokenizer.handle_read_tag_name('!');
             assert_eq!(tokenizer.token.content, "");
@@ -293,10 +308,17 @@ mod tests {
         }
 
         #[test]
-        fn test_token_name_is_amended_when_process_a_slash() {
+        fn test_set_the_current_token_as_a_closing_tag_when_process_a_slash() {
             let mut tokenizer = Tokenizer::from_state(State::ReadTagName);
             tokenizer.handle_read_tag_name('/');
-            assert_eq!(tokenizer.token.content, "/");
+            assert_eq!(tokenizer.token.kind, TokenKind::ClosingTag);
+        }
+
+        #[test]
+        fn test_token_content_is_empty_when_process_a_slash() {
+            let mut tokenizer = Tokenizer::from_state(State::ReadTagName);
+            tokenizer.handle_read_tag_name('/');
+            assert_eq!(tokenizer.token.content, "");
         }
 
         #[test]
@@ -311,6 +333,13 @@ mod tests {
             let mut tokenizer = Tokenizer::from_state(State::ReadTagName);
             tokenizer.handle_read_tag_name('a');
             assert_eq!(tokenizer.token.content, "a");
+        }
+
+        #[test]
+        fn test_set_the_current_token_as_a_opening_tag_when_process_any_other_character() {
+            let mut tokenizer = Tokenizer::from_state(State::ReadTagName);
+            tokenizer.handle_read_tag_name('a');
+            assert_eq!(tokenizer.token.kind, TokenKind::OpeningTag);
         }
     }
 
