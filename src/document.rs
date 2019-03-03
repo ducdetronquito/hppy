@@ -1,25 +1,28 @@
-use crate::node::{Node, Tag};
+use crate::tag::{Tag};
 
 pub struct Document {
-    pub nodes: Vec<Node>,
+    pub tags: Vec<Tag>,
+    pub texts: Vec<String>,
+    pub relationships: Vec<i32>,
 }
 
 impl Document {
     pub fn new() -> Self {
-        Document { nodes: Vec::new() }
-    }
-
-    pub fn push(&mut self, mut node: Node) {
-        node.index = self.nodes.len() as i32;
-        self.nodes.push(node);
+        Document {
+            tags: Vec::new(),
+            texts: Vec::new(),
+            relationships: Vec::new(),
+        }
     }
 
     pub fn push_tag(&mut self, tag_name: &str) {
-        self.push(Node::tag(tag_name));
+        self.tags.push(Tag::from_name(tag_name));
+        self.texts.push("".to_string());
     }
 
-    pub fn push_text(&mut self, text_content: &str) {
-        self.push(Node::text(text_content));
+    pub fn push_text(&mut self, text: &str) {
+        self.tags.push(Tag::Text);
+        self.texts.push(text.to_string());
     }
 }
 
@@ -31,18 +34,17 @@ mod tests {
     fn test_push_tag() {
         let mut document = Document::new();
         document.push_tag("div");
-        assert_eq!(document.nodes.len(), 1);
-        assert_eq!(document.nodes[0].tag, Tag::Div);
-        assert_eq!(document.nodes[0].index, 0);
+        assert_eq!(document.tags.len(), 1);
+        assert_eq!(document.tags[0], Tag::Div);
+        assert_eq!(document.texts[0], "");
     }
 
     #[test]
     fn test_push_text() {
         let mut document = Document::new();
         document.push_text("Hello Hppy!");
-        assert_eq!(document.nodes.len(), 1);
-        assert_eq!(document.nodes[0].tag, Tag::Text);
-        assert_eq!(document.nodes[0].text_content, "Hello Hppy!");
-        assert_eq!(document.nodes[0].index, 0);
+        assert_eq!(document.tags.len(), 1);
+        assert_eq!(document.tags[0], Tag::Text);
+        assert_eq!(document.texts[0], "Hello Hppy!");
     }
 }

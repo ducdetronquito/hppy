@@ -3,7 +3,7 @@
 mod document;
 
 #[cfg(test)]
-mod node;
+mod tag;
 
 #[cfg(test)]
 mod parser;
