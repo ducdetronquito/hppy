@@ -1,4 +1,6 @@
+use crate::parser::parser;
 use crate::tag::{Tag};
+
 
 pub struct Document {
     pub tags: Vec<Tag>,
@@ -30,7 +32,12 @@ impl Document {
     pub fn get_last_node_index(& self) -> i32 {
         self.tags.len() as i32
     }
+
+    pub fn from_string(content: &str) -> Self {
+        parser::parse(content)
+    }
 }
+
 
 #[cfg(test)]
 mod tests {

@@ -1,6 +1,6 @@
 
 #[cfg(test)]
-mod document;
+pub mod document;
 
 #[cfg(test)]
 mod tag;

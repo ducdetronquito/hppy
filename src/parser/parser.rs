@@ -2,7 +2,7 @@ use crate::document::Document;
 use crate::tag::{Tag};
 use crate::parser::tokenizer::Tokenizer;
 
-fn parse(content: &str) -> Document {
+pub fn parse(content: &str) -> Document {
     let mut document = Document::new();
     let mut scopes = Vec::new();
 
