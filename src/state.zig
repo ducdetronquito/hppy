@@ -1,17 +1,16 @@
-#[derive(Debug, PartialEq)]
-pub enum State {
+pub const State = enum {
     Done,
     ReadAttributes,
     ReadClosingComment,
+    ReadDoctype,
     ReadClosingCommentDash,
     ReadClosingTagName,
     ReadCommentContent,
     ReadContent,
-    ReadDoctype,
     ReadOpeningCommentDash,
     ReadOpeningCommentOrDoctype,
     ReadOpeningTagName,
     ReadTagName,
     ReadText,
     SeekOpeningTag,
-}
+};
