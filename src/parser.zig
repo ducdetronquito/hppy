@@ -21,27 +21,33 @@ pub fn parse(allocator: *Allocator, html: []u8) Document {
 
     parent_index_list.append(0) catch unreachable;
 
+    var tag = Tag.Undefined;
+    var text: []u8 = "";
+
     for (tokenizer.get_tokens(html).toSlice()) |*token| {
+        if (token.is_closing_tag()) {
+            var result = parent_index_list.pop();
+            continue;
+        }
+
+        var parent_index = parent_index_list.at(parent_index_list.count() - 1);
+        var content = token.content.toSlice();
+
         if (token.is_opening_tag()) {
-            var tag = Tag.from_name(token.content.toSlice());
-            var parent_index = parent_index_list.at(parent_index_list.count() - 1);
-
+            tag = Tag.from_name(content);
+            text = "";
             parent_index_list.append(document.tags.count()) catch unreachable;
-
-            document.tags.append(tag) catch unreachable;
-            document.parents.append(parent_index) catch unreachable;
-            document.texts.append("") catch unreachable;
         }
         else if (token.is_text()) {
-            var tag = Tag.Text;
-            var parent_index = parent_index_list.at(parent_index_list.count() - 1);
-            document.tags.append(tag) catch unreachable;
-            document.parents.append(parent_index) catch unreachable;
-            document.texts.append(token.content.toSlice()) catch unreachable;
+            tag = Tag.Text;
+            text = content;
+        } else {
+            continue;
         }
-        else if (token.is_closing_tag()) {
-            var result = parent_index_list.pop();
-        }
+
+        document.tags.append(tag) catch unreachable;
+        document.parents.append(parent_index) catch unreachable;
+        document.texts.append(text) catch unreachable;
     }
 
     return document;
