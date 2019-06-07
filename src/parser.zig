@@ -65,19 +65,19 @@ var alloc = direct_allocator.allocator;
 // ----- Test Parse -----
 
 test "Parse." {
-    var result = parse(&alloc, &"<div></div>");
+    var document = parse(&alloc, &"<div></div>");
 
-    var tags = result.tags.toSlice();
-    var parents = result.parents.toSlice();
+    var tags = document.tags.toSlice();
+    var parents = document.parents.toSlice();
     assert(tags[1] == Tag.Div);
     assert(parents[1] == 0);
 }
 
 test "Parse nested" {
-    var result = parse(&alloc, &"<div><p></p></div>");
+    var document = parse(&alloc, &"<div><p></p></div>");
 
-    var tags = result.tags.toSlice();
-    var parents = result.parents.toSlice();
+    var tags = document.tags.toSlice();
+    var parents = document.parents.toSlice();
     assert(tags[1] == Tag.Div);
     assert(parents[1] == 0);
     assert(tags[2] == Tag.P);
@@ -86,21 +86,39 @@ test "Parse nested" {
 
 
 test "Parse text." {
-    var result = parse(&alloc, &"<div>Hello Hppy</div>");
+    var document = parse(&alloc, &"<div>Hello Hppy</div>");
 
-    var tags = result.tags.toSlice();
-    var parents = result.parents.toSlice();
-    var texts = result.texts.toSlice();
+    var tags = document.tags.toSlice();
+    var parents = document.parents.toSlice();
+    var texts = document.texts.toSlice();
     assert(tags[2] == Tag.Text);
     assert(parents[2] == 1);
     assert(Bytes.equals(texts[2], "Hello Hppy"));
 }
 
 test "By default each tag as an empty string." {
-    var result = parse(&alloc, &"<div></div>");
+    var document = parse(&alloc, &"<div></div>");
 
-    var texts = result.texts.toSlice();
+    var texts = document.texts.toSlice();
     assert(Bytes.equals(texts[1], ""));
+}
+
+test "Text do not create a new hierarchy." {
+    var html =
+        \\<div>
+        \\ Hello Hppy
+        \\  <p></p>
+        \\</div>
+    ;
+    var document = parse(&alloc, &html);
+
+    var tags = document.tags.toSlice();
+    var parents = document.parents.toSlice();
+    assert(tags[1] == Tag.Div);
+    assert(tags[2] == Tag.Text);
+    assert(tags[3] == Tag.P);
+    assert(tags[parents[2]] == Tag.Div);
+    assert(tags[parents[3]] == Tag.Div);
 }
 
 
@@ -114,10 +132,10 @@ test "Parse multiple nested" {
         \\  </div>
         \\</div>
     ;
-    var result = parse(&alloc, &html);
+    var document = parse(&alloc, &html);
 
-    var tags = result.tags.toSlice();
-    var parents = result.parents.toSlice();
+    var tags = document.tags.toSlice();
+    var parents = document.parents.toSlice();
     assert(tags[1] == Tag.Div);
     assert(parents[1] == 0);
     assert(tags[2] == Tag.P);
