@@ -2,6 +2,7 @@ const std = @import("std");
 const warn = std.debug.warn;
 
 const Allocator = @import("std").mem.Allocator;
+const BytesList = @import("bytes.zig").BytesList;
 const Document = @import("document.zig").Document;
 const Tag = @import("tag.zig").Tag;
 const TagList = @import("tag.zig").TagList;
@@ -37,17 +38,22 @@ pub fn parse(allocator: *Allocator, html: []u8) Document {
             tag = Tag.from_name(content);
             text = "";
             parent_index_list.append(document.tags.count()) catch unreachable;
+            document.tags.append(tag) catch unreachable;
+            document.parents.append(parent_index) catch unreachable;
+            document.texts.append(text) catch unreachable;
+            document.attributes.append(BytesList.init(allocator)) catch unreachable;
         }
         else if (token.is_text()) {
             tag = Tag.Text;
             text = content;
-        } else {
+            document.tags.append(tag) catch unreachable;
+            document.parents.append(parent_index) catch unreachable;
+            document.texts.append(text) catch unreachable;
+        } else if (token.is_attribute()) {
+            var previous_tag_index = document.tags.count() - 1;
+            document.attributes.toSlice()[previous_tag_index].append(content) catch unreachable;
             continue;
         }
-
-        document.tags.append(tag) catch unreachable;
-        document.parents.append(parent_index) catch unreachable;
-        document.texts.append(text) catch unreachable;
     }
 
     return document;
@@ -146,6 +152,16 @@ test "Parse multiple nested" {
     assert(parents[4] == 3);
 }
 
+
+test "Parse a key only attribute." {
+    var document = parse(&alloc, &"<div disabled>Hello</div>");
+
+    var tags = document.tags.toSlice();
+    var attributes = document.attributes.toSlice();
+    assert(tags[1] == Tag.Div);
+    assert(Bytes.equals(attributes[1].toSlice()[0], "disabled"));
+    assert(tags[2] == Tag.Text);
+}
 
 // ----- Teardown -----
 const teardown = direct_allocator.deinit();

@@ -3,6 +3,7 @@ const String = @import("string.zig").String;
 
 
 pub const TokenKind = enum {
+    Attribute,
     Doctype,
     ClosingTag,
     Comment,
@@ -41,6 +42,10 @@ pub const Token = struct {
         return Token.init(allocator, TokenKind.Comment);
     }
 
+    pub fn attribute(allocator: *Allocator) Token {
+        return Token.init(allocator, TokenKind.Attribute);
+    }
+
     fn is_opening_tag(self: Token) bool {
         return self.kind == TokenKind.OpeningTag;
     }
@@ -59,6 +64,10 @@ pub const Token = struct {
 
     fn is_comment(self: Token) bool {
         return self.kind == TokenKind.Comment;
+    }
+
+    fn is_attribute(self: Token) bool {
+        return self.kind == TokenKind.Attribute;
     }
 };
 
@@ -103,34 +112,46 @@ test "Create an Comment Tag" {
     assert(token.is_comment() == true);
 }
 
-test "Token is opening tag" {
+test "Create an Attribute Tag" {
+    var token = Token.attribute(&alloc);
+
+    assert(token.is_attribute() == true);
+}
+
+test "Token is an opening tag" {
     var token = Token.init(&alloc, TokenKind.OpeningTag);
 
     assert(token.is_opening_tag() == true);
 }
 
-test "Token is closing tag" {
+test "Token is a closing tag" {
     var token = Token.init(&alloc, TokenKind.ClosingTag);
 
     assert(token.is_closing_tag() == true);
 }
 
-test "Token is text" {
+test "Token is a text" {
     var token = Token.init(&alloc, TokenKind.Text);
 
     assert(token.is_text() == true);
 }
 
-test "Token is doctype" {
+test "Token is a doctype" {
     var token = Token.init(&alloc, TokenKind.Doctype);
 
     assert(token.is_doctype() == true);
 }
 
-test "Token is doctype" {
+test "Token is comment" {
     var token = Token.init(&alloc, TokenKind.Comment);
 
     assert(token.is_comment() == true);
+}
+
+test "Token is an attribute" {
+    var token = Token.init(&alloc, TokenKind.Attribute);
+
+    assert(token.is_attribute() == true);
 }
 
 // ----- Teardown -----

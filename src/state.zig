@@ -1,5 +1,6 @@
 pub const State = enum {
     Done,
+    ReadAttributeKey,
     ReadAttributes,
     ReadClosingComment,
     ReadDoctype,
