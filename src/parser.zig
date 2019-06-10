@@ -13,19 +13,20 @@ const TokenArray = @import("tokenizer.zig").TokenArray;
 
 const ParentIndexList = std.ArrayList(usize);
 
-pub fn parse(allocator: *Allocator, html: []u8) Document {
+pub fn parse(allocator: *Allocator, html: []u8) !Document {
     var tokenizer = Tokenizer.init(allocator);
     var document = Document.init(allocator);
 
     var parent_index_list = ParentIndexList.init(allocator);
     defer parent_index_list.deinit();
 
-    parent_index_list.append(0) catch unreachable;
+    try parent_index_list.append(0);
 
     var tag = Tag.Undefined;
     var text: []u8 = "";
 
-    for (tokenizer.get_tokens(html).toSlice()) |*token| {
+    var tokens = try tokenizer.get_tokens(html);
+    for (tokens.toSlice()) |*token| {
         if (token.is_closing_tag()) {
             var result = parent_index_list.pop();
             continue;
@@ -37,21 +38,21 @@ pub fn parse(allocator: *Allocator, html: []u8) Document {
         if (token.is_opening_tag()) {
             tag = Tag.from_name(content);
             text = "";
-            parent_index_list.append(document.tags.count()) catch unreachable;
-            document.tags.append(tag) catch unreachable;
-            document.parents.append(parent_index) catch unreachable;
-            document.texts.append(text) catch unreachable;
-            document.attributes.append(BytesList.init(allocator)) catch unreachable;
+            try parent_index_list.append(document.tags.count());
+            try document.tags.append(tag);
+            try document.parents.append(parent_index);
+            try document.texts.append(text);
+            try document.attributes.append(BytesList.init(allocator));
         }
         else if (token.is_text()) {
             tag = Tag.Text;
             text = content;
-            document.tags.append(tag) catch unreachable;
-            document.parents.append(parent_index) catch unreachable;
-            document.texts.append(text) catch unreachable;
+            try document.tags.append(tag);
+            try document.parents.append(parent_index);
+            try document.texts.append(text);
         } else if (token.is_attribute()) {
             var previous_tag_index = document.tags.count() - 1;
-            document.attributes.toSlice()[previous_tag_index].append(content) catch unreachable;
+            try document.attributes.toSlice()[previous_tag_index].append(content);
             continue;
         }
     }
@@ -71,7 +72,7 @@ var alloc = direct_allocator.allocator;
 // ----- Test Parse -----
 
 test "Parse." {
-    var document = parse(&alloc, &"<div></div>");
+    var document = try parse(&alloc, &"<div></div>");
 
     var tags = document.tags.toSlice();
     var parents = document.parents.toSlice();
@@ -80,7 +81,7 @@ test "Parse." {
 }
 
 test "Parse nested" {
-    var document = parse(&alloc, &"<div><p></p></div>");
+    var document = try parse(&alloc, &"<div><p></p></div>");
 
     var tags = document.tags.toSlice();
     var parents = document.parents.toSlice();
@@ -92,7 +93,7 @@ test "Parse nested" {
 
 
 test "Parse text." {
-    var document = parse(&alloc, &"<div>Hello Hppy</div>");
+    var document = try parse(&alloc, &"<div>Hello Hppy</div>");
 
     var tags = document.tags.toSlice();
     var parents = document.parents.toSlice();
@@ -103,7 +104,7 @@ test "Parse text." {
 }
 
 test "By default each tag as an empty string." {
-    var document = parse(&alloc, &"<div></div>");
+    var document = try parse(&alloc, &"<div></div>");
 
     var texts = document.texts.toSlice();
     assert(Bytes.equals(texts[1], ""));
@@ -116,7 +117,7 @@ test "Text do not create a new hierarchy." {
         \\  <p></p>
         \\</div>
     ;
-    var document = parse(&alloc, &html);
+    var document = try parse(&alloc, &html);
 
     var tags = document.tags.toSlice();
     var parents = document.parents.toSlice();
@@ -138,7 +139,7 @@ test "Parse multiple nested" {
         \\  </div>
         \\</div>
     ;
-    var document = parse(&alloc, &html);
+    var document = try parse(&alloc, &html);
 
     var tags = document.tags.toSlice();
     var parents = document.parents.toSlice();
@@ -154,7 +155,18 @@ test "Parse multiple nested" {
 
 
 test "Parse a key only attribute." {
-    var document = parse(&alloc, &"<div disabled>Hello</div>");
+    var document = try parse(&alloc, &"<div disabled >Hello</div>");
+
+    var tags = document.tags.toSlice();
+    var attributes = document.attributes.toSlice();
+    assert(tags[1] == Tag.Div);
+    assert(Bytes.equals(attributes[1].toSlice()[0], "disabled"));
+    assert(tags[2] == Tag.Text);
+}
+
+
+test "Key only arguments can be surrounded by any space characters." {
+    var document = try parse(&alloc, &"<div     disabled      >Hello</div>");
 
     var tags = document.tags.toSlice();
     var attributes = document.attributes.toSlice();

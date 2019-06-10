@@ -37,8 +37,8 @@ pub const Document = struct {
         };
     }
 
-    pub fn from_string(allocator: *Allocator, html: []u8) Document {
-        return parser.parse(allocator, html);
+    pub fn from_string(allocator: *Allocator, html: []u8) !Document {
+        return try parser.parse(allocator, html);
     }
 };
 
@@ -53,7 +53,7 @@ var alloc = direct_allocator.allocator;
 
 
 test "Document.from_string" {
-    var document = Document.from_string(&alloc, &"<div></div>");
+    var document = try Document.from_string(&alloc, &"<div></div>");
 
     assert(document.tags.toSlice().len == 2);
 }

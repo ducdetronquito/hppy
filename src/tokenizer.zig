@@ -22,34 +22,34 @@ pub const Tokenizer = struct {
         };
     }
 
-    pub fn get_tokens(self: *Tokenizer, html: []u8) TokenArray {
+    pub fn get_tokens(self: *Tokenizer, html: []u8) !TokenArray {
         var tokens = TokenArray.init(self.allocator);
         for (html) | character | {
-            self.handle(character);
+            try self.handle(character);
             if (self.token_has_been_found) {
-                tokens.append(self.token) catch unreachable;
+                try tokens.append(self.token);
                 self.token_has_been_found = false;
             }
         }
         return tokens;
     }
 
-    fn handle(self: *Tokenizer, character: u8) void {
+    fn handle(self: *Tokenizer, character: u8) !void {
         switch(self.state) {
             State.SeekOpeningTag => self.handle_seek_opening_tag(character),
-            State.ReadClosingTagName => self.handle_read_closing_tag_name(character),
-            State.ReadTagName => self.handle_read_tag_name(character),
-            State.ReadOpeningTagName => self.handle_read_opening_tag_name(character),
-            State.ReadAttributes => self.handle_read_attributes(character),
-            State.ReadAttributeKey => self.handle_read_attribute_key(character),
-            State.ReadContent => self.handle_read_content(character),
-            State.ReadText => self.handle_read_text(character),
-            State.ReadOpeningCommentOrDoctype => self.handle_read_opening_comment_or_doctype(character),
+            State.ReadClosingTagName => try self.handle_read_closing_tag_name(character),
+            State.ReadTagName => try self.handle_read_tag_name(character),
+            State.ReadOpeningTagName => try self.handle_read_opening_tag_name(character),
+            State.ReadAttributes => try self.handle_read_attributes(character),
+            State.ReadAttributeKey => try self.handle_read_attribute_key(character),
+            State.ReadContent => try self.handle_read_content(character),
+            State.ReadText => try self.handle_read_text(character),
+            State.ReadOpeningCommentOrDoctype => try self.handle_read_opening_comment_or_doctype(character),
             State.ReadOpeningCommentDash => self.handle_read_opening_comment_dash(character),
-            State.ReadCommentContent => self.handle_read_comment_content(character),
+            State.ReadCommentContent => try self.handle_read_comment_content(character),
             State.ReadClosingComment => self.handle_read_closing_comment(character),
             State.ReadClosingCommentDash => self.handle_read_closing_comment_dash(character),
-            State.ReadDoctype => self.handle_read_doctype(character),
+            State.ReadDoctype => try self.handle_read_doctype(character),
             else => return,
         }
     }
@@ -61,7 +61,7 @@ pub const Tokenizer = struct {
         }
     }
 
-    fn handle_read_tag_name(self: *Tokenizer, character: u8) void {
+    fn handle_read_tag_name(self: *Tokenizer, character: u8) !void {
         switch(character) {
             '!' => self.state = State.ReadOpeningCommentOrDoctype,
             '/' => {
@@ -70,13 +70,13 @@ pub const Tokenizer = struct {
             },
             else => {
                 self.token = Token.opening_tag(self.allocator);
-                self.token.content.push(character);
+                try self.token.content.push(character);
                 self.state = State.ReadOpeningTagName;
             }
         }
     }
 
-    fn handle_read_opening_tag_name(self: *Tokenizer, character: u8) void {
+    fn handle_read_opening_tag_name(self: *Tokenizer, character: u8) !void {
         switch(character) {
             '>' => {
                 self.token_has_been_found = true;
@@ -86,12 +86,12 @@ pub const Tokenizer = struct {
                 self.token_has_been_found = true;
                 self.state = State.ReadAttributes;
             },
-            else => self.token.content.push(character)
+            else => try self.token.content.push(character)
         }
     }
 
 
-    fn handle_read_attributes(self: *Tokenizer, character: u8) void {
+    fn handle_read_attributes(self: *Tokenizer, character: u8) !void {
         switch(character) {
             '>' => {
                 self.state = State.ReadContent;
@@ -100,62 +100,66 @@ pub const Tokenizer = struct {
             ' ' => return,
             else => {
                 self.token = Token.attribute(self.allocator);
-                self.token.content.push(character);
+                try self.token.content.push(character);
                 self.state = State.ReadAttributeKey;
             }
         }
     }
 
-    fn handle_read_attribute_key(self: *Tokenizer, character: u8) void {
+    fn handle_read_attribute_key(self: *Tokenizer, character: u8) !void {
         switch(character) {
+            ' ' => {
+                self.state = State.ReadAttributes;
+                self.token_has_been_found = true;
+            },
             '>' => {
                 self.state = State.ReadContent;
                 self.token_has_been_found = true;
             },
             else => {
-                self.token.content.push(character);
+                try self.token.content.push(character);
             }
         }
     }
 
-    fn handle_read_closing_tag_name(self: *Tokenizer, character: u8) void {
+    fn handle_read_closing_tag_name(self: *Tokenizer, character: u8) !void {
         switch(character) {
             '>' =>  {
                 self.token_has_been_found = true;
                 self.state = State.ReadContent;
             },
-            else => self.token.content.push(character)
+            else => try self.token.content.push(character)
         }
     }
 
-    fn handle_read_content(self: *Tokenizer, character: u8) void {
+    fn handle_read_content(self: *Tokenizer, character: u8) !void {
         switch(character) {
             '<' => self.state = State.ReadTagName,
             ' ' => return,
             '\n' => return,
             else => {
                 self.token = Token.text(self.allocator);
-                self.token.content.push(character);
+                try self.token.content.push(character);
                 self.state = State.ReadText;
             }
         } 
     }
 
-    fn handle_read_text(self: *Tokenizer, character: u8) void {
+    fn handle_read_text(self: *Tokenizer, character: u8) !void {
         switch(character) {
             '<' => {
                 self.token_has_been_found = true;
                 self.state = State.ReadTagName;
             },
-            else => self.token.content.push(character),
+            else => try self.token.content.push(character),
         }
     }
 
-    fn handle_read_opening_comment_or_doctype(self: *Tokenizer, character: u8) void {
+    fn handle_read_opening_comment_or_doctype(self: *Tokenizer, character: u8) !void {
         switch(character) {
             '-' => self.state = State.ReadOpeningCommentDash,
             'D' => {
-                self.token.content.push(character);
+                try self.token.content.push(character);
                 self.state = State.ReadDoctype;
             },
             else => return
@@ -172,10 +176,10 @@ pub const Tokenizer = struct {
         }
     }
 
-    fn handle_read_comment_content(self: *Tokenizer, character: u8) void {
+    fn handle_read_comment_content(self: *Tokenizer, character: u8) !void {
         switch(character) {
             '-' => self.state = State.ReadClosingComment,
-            else => self.token.content.push(character)
+            else => try self.token.content.push(character)
         }
     }
 
@@ -186,13 +190,13 @@ pub const Tokenizer = struct {
         }
     }
 
-    fn handle_read_doctype(self: *Tokenizer, character: u8) void {
+    fn handle_read_doctype(self: *Tokenizer, character: u8) !void {
         switch(character) {
             '>' => {
                 self.token_has_been_found = true;
                 self.state = State.ReadContent;
             },
-            else => self.token.content.push(character)
+            else => try self.token.content.push(character)
         }
     }
 
@@ -218,7 +222,8 @@ var alloc = direct_allocator.allocator;
 
 test "Can tokenize div with text" {
     var tokenizer = Tokenizer.init(&alloc);
-    var tokens = tokenizer.get_tokens(&"<div>Hello Hppy</div>").toSlice();
+    var _tokens = try tokenizer.get_tokens(&"<div>Hello Hppy</div>");
+    var tokens = _tokens.toSlice();
     assert(tokens.len == 3);
     assert(tokens[0].is_opening_tag());
     assert(tokens[0].content.equals("div"));
@@ -230,7 +235,8 @@ test "Can tokenize div with text" {
 
 test "Can tokenize doctype" {
     var tokenizer = Tokenizer.init(&alloc);
-    var tokens = tokenizer.get_tokens(&"<!DOCTYPE html>").toSlice();
+    var _tokens = try tokenizer.get_tokens(&"<!DOCTYPE html>");
+    var tokens = _tokens.toSlice();
     assert(tokens.len == 1);
     assert(tokens[0].is_doctype());
     assert(tokens[0].content.equals("DOCTYPE html"));
@@ -238,7 +244,8 @@ test "Can tokenize doctype" {
 
 test "Can tokenize comment" {
     var tokenizer = Tokenizer.init(&alloc);
-    var tokens = tokenizer.get_tokens(&"<!-- Hello Hppy -->").toSlice();
+    var _tokens = try tokenizer.get_tokens(&"<!-- Hello Hppy -->");
+    var tokens = _tokens.toSlice();
     assert(tokens.len == 1);
     assert(tokens[0].is_comment());
     assert(tokens[0].content.equals(" Hello Hppy "));
@@ -248,13 +255,13 @@ test "Can tokenize comment" {
 
 test "Handle - Given SeekOpeningTag state - When encounter < character - Then switch state to ReadTagName." {
     var tokenizer = Tokenizer.init(&alloc);
-    tokenizer.handle('<');
+    try tokenizer.handle('<');
     assert(tokenizer.state == State.ReadTagName);
 }
 
 test "Handle - Given SeekOpeningTag state - When encounter any other character - Then keep state to SeekOpeningTag." {
     var tokenizer = Tokenizer.init(&alloc);
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.state == State.SeekOpeningTag);
 }
 
@@ -263,21 +270,21 @@ test "Handle - Given SeekOpeningTag state - When encounter any other character -
 test "Handle - Given ReadClosingTagName state - When encounter > character - Then switch state to ReadContent." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadClosingTagName;
-    tokenizer.handle('>');
+    try tokenizer.handle('>');
     assert(tokenizer.state == State.ReadContent);
 }
 
 test "Handle - Given ReadClosingTagName state - When encounter > character - Then notify a token has been found." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadClosingTagName;
-    tokenizer.handle('>');
+    try tokenizer.handle('>');
     assert(tokenizer.token_has_been_found == true);
 }
 
 test "Handle - Given ReadClosingTagName state - When encounter any other character - Store the character." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadClosingTagName;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.token.content.equals("a"));
 }
 
@@ -286,42 +293,42 @@ test "Handle - Given ReadClosingTagName state - When encounter any other charact
 test "Handle - Given ReadTagName state - When encounter ! character - Then switch state to ReadOpeningCommentOrDoctype." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadTagName;
-    tokenizer.handle('!');
+    try tokenizer.handle('!');
     assert(tokenizer.state == State.ReadOpeningCommentOrDoctype);
 }
 
 test "Handle - Given ReadTagName state - When encounter / character - Then switch state to ReadClosingTagName." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadTagName;
-    tokenizer.handle('/');
+    try tokenizer.handle('/');
     assert(tokenizer.state == State.ReadClosingTagName);
 }
 
 test "Handle - Given ReadTagName state - When encounter / character - Then start to build a closing tag." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadTagName;
-    tokenizer.handle('/');
+    try tokenizer.handle('/');
     assert(tokenizer.token.is_closing_tag());
 }
 
 test "Handle - Given ReadTagName state - When encounter any other character - Then switch state to ReadOpeningTagName." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadTagName;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.state == State.ReadOpeningTagName);
 }
 
 test "Handle - Given ReadTagName state - When encounter any other character - Then start to build a opening tag." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadTagName;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.token.is_opening_tag());
 }
 
 test "Handle - Given ReadTagName state - When encounter any other character - Store the character." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadTagName;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.token.content.equals("a"));
 }
 
@@ -330,28 +337,28 @@ test "Handle - Given ReadTagName state - When encounter any other character - St
 test "Handle - Given ReadOpeningTagName state - When encounter a space character - Then switch state to ReadAttributes." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadOpeningTagName;
-    tokenizer.handle(' ');
+    try tokenizer.handle(' ');
     assert(tokenizer.state == State.ReadAttributes);
 }
 
 test "Handle - Given ReadOpeningTagName state - When encounter > character - Then notify a token has been found." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadOpeningTagName;
-    tokenizer.handle('>');
+    try tokenizer.handle('>');
     assert(tokenizer.token_has_been_found == true);
 }
 
 test "Handle - Given ReadOpeningTagName state - When encounter > character - Then switch state to ReadContent." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadOpeningTagName;
-    tokenizer.handle('>');
+    try tokenizer.handle('>');
     assert(tokenizer.state == State.ReadContent);
 }
 
 test "Handle - Given ReadOpeningTagName state - When encounter any other character - Store the character." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadOpeningTagName;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.token.content.equals("a"));
 }
 
@@ -361,59 +368,73 @@ test "Handle - Given ReadOpeningTagName state - When encounter any other charact
 test "Handle - Given ReadAttributes state - When encounter > character - Then switch state to ReadContent." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadAttributes;
-    tokenizer.handle('>');
+    try tokenizer.handle('>');
     assert(tokenizer.state == State.ReadContent);
 }
 
 test "Handle - Given ReadAttributes state - When encounter > character - Then notify a token has been found." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadAttributes;
-    tokenizer.handle('>');
+    try tokenizer.handle('>');
     assert(tokenizer.token_has_been_found == true);
 }
 
 test "Handle - Given ReadAttributes state - When encounter any other character - Then switch state to ReadAttributeKey." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadAttributes;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.state == State.ReadAttributeKey);
 }
 
 test "Handle - Given ReadAttributes state - When encounter any other character - Store the character." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadAttributes;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.token.content.equals("a"));
 }
 
 test "Handle - Given ReadAttributes state - When encounter any other character - Then start to build an attribute tag." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadAttributes;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.token.is_attribute());
 }
 
 
 // ----- Test ReadAttributeKey state -----
 
+test "Handle - Given ReadAttributeKey state - When encounter space character - Then switch state to ReadAttributes." {
+    var tokenizer = Tokenizer.init(&alloc);
+    tokenizer.state = State.ReadAttributeKey;
+    try tokenizer.handle(' ');
+    assert(tokenizer.state == State.ReadAttributes);
+}
+
+test "Handle - Given ReadAttributeKey state - When encounter space character - Then notify a token has been found." {
+    var tokenizer = Tokenizer.init(&alloc);
+    tokenizer.state = State.ReadAttributeKey;
+    try tokenizer.handle(' ');
+    assert(tokenizer.token_has_been_found == true);
+}
+
 test "Handle - Given ReadAttributeKey state - When encounter > character - Then switch state to ReadContent." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadAttributeKey;
-    tokenizer.handle('>');
+    try tokenizer.handle('>');
     assert(tokenizer.state == State.ReadContent);
 }
 
 test "Handle - Given ReadAttributeKey state - When encounter > character - Then notify a token has been found." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadAttributeKey;
-    tokenizer.handle('>');
+    try tokenizer.handle('>');
     assert(tokenizer.token_has_been_found == true);
 }
 
 test "Handle - Given ReadAttributeKey state - When encounter any other character - Store the character." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadAttributeKey;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.token.content.equals("a"));
 }
 
@@ -423,42 +444,42 @@ test "Handle - Given ReadAttributeKey state - When encounter any other character
 test "Handle - Given ReadContent state - When encounter < character - Then switch state to ReadTagName." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadContent;
-    tokenizer.handle('<');
+    try tokenizer.handle('<');
     assert(tokenizer.state == State.ReadTagName);
 }
 
 test "Handle - Given ReadContent state - When encounter a space character - Then keep state to ReadContent." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadContent;
-    tokenizer.handle(' ');
+    try tokenizer.handle(' ');
     assert(tokenizer.state == State.ReadContent);
 }
 
 test "Handle - Given ReadContent state - When encounter a carriage return character - Then keep state to ReadContent." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadContent;
-    tokenizer.handle('\n');
+    try tokenizer.handle('\n');
     assert(tokenizer.state == State.ReadContent);
 }
 
 test "Handle - Given ReadContent state - When encounter any other character - Then switch state to ReadText." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadContent;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.state == State.ReadText);
 }
 
 test "Handle - Given ReadContent state - When encounter any other character - Then store the character." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadContent;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.token.content.equals("a"));
 }
 
 test "Handle - Given ReadContent state - When encounter any other character - Then start to build a text tag." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadContent;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.token.is_text());
 }
 
@@ -467,21 +488,21 @@ test "Handle - Given ReadContent state - When encounter any other character - Th
 test "Handle - Given ReadText state - When encounter < character - Then switch state to ReadTagName." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadText;
-    tokenizer.handle('<');
+    try tokenizer.handle('<');
     assert(tokenizer.state == State.ReadTagName);
 }
 
 test "Handle - Given ReadText state - When encounter < character - Then notify a token has been found." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadText;
-    tokenizer.handle('<');
+    try tokenizer.handle('<');
     assert(tokenizer.token_has_been_found == true);
 }
 
 test "Handle - Given ReadText state - When encounter any other character - Then store the character." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadText;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.token.content.equals("a"));
 }
 
@@ -490,28 +511,28 @@ test "Handle - Given ReadText state - When encounter any other character - Then 
 test "Handle - Given ReadOpeningCommentOrDoctype state - When encounter - character - Then switch state to ReadOpeningCommentDash." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadOpeningCommentOrDoctype;
-    tokenizer.handle('-');
+    try tokenizer.handle('-');
     assert(tokenizer.state == State.ReadOpeningCommentDash);
 }
 
 test "Handle - Given ReadOpeningCommentOrDoctype state - When encounter D character - Then switch state to ReadDoctype." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadOpeningCommentOrDoctype;
-    tokenizer.handle('D');
+    try tokenizer.handle('D');
     assert(tokenizer.state == State.ReadDoctype);
 }
 
 test "Handle - Given ReadOpeningCommentOrDoctype state - When encounter D character - Then store the character." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadOpeningCommentOrDoctype;
-    tokenizer.handle('D');
+    try tokenizer.handle('D');
     assert(tokenizer.token.content.equals("D"));
 }
 
 test "Handle - Given ReadOpeningCommentOrDoctype state - When encounter any other character - Then keep state to ReadOpeningCommentOrDoctype." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadOpeningCommentOrDoctype;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.state == State.ReadOpeningCommentOrDoctype);
 }
 
@@ -520,21 +541,21 @@ test "Handle - Given ReadOpeningCommentOrDoctype state - When encounter any othe
 test "Handle - Given ReadOpeningCommentDash state - When encounter - character - Then switch state to ReadCommentContent." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadOpeningCommentDash;
-    tokenizer.handle('-');
+    try tokenizer.handle('-');
     assert(tokenizer.state == State.ReadCommentContent);
 }
 
 test "Handle - Given ReadOpeningCommentDash state - When encounter - character - Then start to build a comment tag." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadOpeningCommentDash;
-    tokenizer.handle('-');
+    try tokenizer.handle('-');
     assert(tokenizer.token.is_comment());
 }
 
 test "Handle - Given ReadOpeningCommentDash state - When encounter any other character - Then switch state to Done." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadOpeningCommentDash;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.state == State.Done);
 }
 
@@ -543,14 +564,14 @@ test "Handle - Given ReadOpeningCommentDash state - When encounter any other cha
 test "Handle - Given ReadCommentContent state - When encounter - character - Then switch state to ReadClosingComment." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadCommentContent;
-    tokenizer.handle('-');
+    try tokenizer.handle('-');
     assert(tokenizer.state == State.ReadClosingComment);
 }
 
 test "Handle - Given ReadCommentContent state - When encounter any other character - Then keep state to ReadCommentContent." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadCommentContent;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.state == State.ReadCommentContent);
 }
 
@@ -559,14 +580,14 @@ test "Handle - Given ReadCommentContent state - When encounter any other charact
 test "Handle - Given ReadClosingComment state - When encounter - character - Then switch state to ReadClosingCommentDash." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadClosingComment;
-    tokenizer.handle('-');
+    try tokenizer.handle('-');
     assert(tokenizer.state == State.ReadClosingCommentDash);
 }
 
 test "Handle - Given ReadClosingComment state - When encounter any other character - Then keep state to ReadCommentContent." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadClosingComment;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.state == State.ReadCommentContent);
 }
 
@@ -575,21 +596,21 @@ test "Handle - Given ReadClosingComment state - When encounter any other charact
 test "Handle - Given ReadClosingCommentDash state - When encounter > character - Then switch state to ReadContent." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadClosingCommentDash;
-    tokenizer.handle('>');
+    try tokenizer.handle('>');
     assert(tokenizer.state == State.ReadContent);
 }
 
 test "Handle - Given ReadClosingCommentDash state - When encounter > character - Then notify a token has been found." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadClosingCommentDash;
-    tokenizer.handle('>');
+    try tokenizer.handle('>');
     assert(tokenizer.token_has_been_found == true);
 }
 
 test "Handle - Given ReadClosingCommentDash state - When encounter any other character - Then keep state to ReadCommentContent." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadClosingCommentDash;
-    tokenizer.handle('a');
+    try tokenizer.handle('a');
     assert(tokenizer.state == State.ReadCommentContent);
 }
 
@@ -598,28 +619,28 @@ test "Handle - Given ReadClosingCommentDash state - When encounter any other cha
 test "Handle - Given ReadDoctype state - When encounter > character - Then switch state to ReadContent." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadDoctype;
-    tokenizer.handle('>');
+    try tokenizer.handle('>');
     assert(tokenizer.state == State.ReadContent);
 }
 
 test "Handle - Given ReadDoctype state - When encounter > character - Then notify a token has been found." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadDoctype;
-    tokenizer.handle('>');
+    try tokenizer.handle('>');
     assert(tokenizer.token_has_been_found == true);
 }
 
 test "Handle - Given ReadDoctype state - When encounter any other character - Then keep state to ReadDoctype." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadDoctype;
-    tokenizer.handle('O');
+    try tokenizer.handle('O');
     assert(tokenizer.state == State.ReadDoctype);
 }
 
 test "Handle - Given ReadDoctype state - When encounter any other character - Then store the character." {
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadDoctype;
-    tokenizer.handle('O');
+    try tokenizer.handle('O');
     assert(tokenizer.token.content.equals("O"));
 }
 

@@ -16,8 +16,8 @@ pub const String = struct {
         self.bytes.deinit();
     }
     
-    fn push(self: *String, character: u8) void {
-        return self.bytes.append(character) catch unreachable;
+    fn push(self: *String, character: u8) !void {
+        return try self.bytes.append(character);
     }
 
     pub fn from(allocator: *Allocator, bytes: []u8) String {
@@ -61,7 +61,7 @@ test "Push a character" {
     var name = String.init(&alloc);
     defer name.deinit();
 
-    name.push('a');
+    try name.push('a');
 
     assert(name.bytes.len == 1);
     assert(name.bytes.items[0] == 'a');
