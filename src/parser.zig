@@ -5,13 +5,14 @@ const Allocator = @import("std").mem.Allocator;
 const BytesList = @import("bytes.zig").BytesList;
 const Document = @import("document.zig").Document;
 const Tag = @import("tag.zig").Tag;
-const TagList = @import("tag.zig").TagList;
 const Token = @import("token.zig").Token;
 const Tokenizer = @import("tokenizer.zig").Tokenizer;
 const TokenArray = @import("tokenizer.zig").TokenArray;
 
 
+
 const ParentIndexList = std.ArrayList(usize);
+
 
 pub fn parse(allocator: *Allocator, html: []u8) !Document {
     var tokenizer = Tokenizer.init(allocator);
@@ -25,8 +26,12 @@ pub fn parse(allocator: *Allocator, html: []u8) !Document {
     var tag = Tag.Undefined;
     var text: []u8 = "";
 
+    var self_closing_tags = try Tag.get_self_closing_tags(allocator);
+    defer self_closing_tags.deinit();
+
     var tokens = try tokenizer.get_tokens(html);
     for (tokens.toSlice()) |*token| {
+
         if (token.is_closing_tag()) {
             var result = parent_index_list.pop();
             continue;
@@ -38,7 +43,11 @@ pub fn parse(allocator: *Allocator, html: []u8) !Document {
         if (token.is_opening_tag()) {
             tag = Tag.from_name(content);
             text = "";
-            try parent_index_list.append(document.tags.count());
+
+            if (!tag.is_in(&self_closing_tags)) {
+                try parent_index_list.append(document.tags.count());
+            }
+
             try document.tags.append(tag);
             try document.parents.append(parent_index);
             try document.texts.append(text);
@@ -173,6 +182,25 @@ test "Key only arguments can be surrounded by any space characters." {
     assert(tags[1] == Tag.Div);
     assert(Bytes.equals(attributes[1].toSlice()[0], "disabled"));
     assert(tags[2] == Tag.Text);
+}
+
+
+test "Img tag do not create a new hierarchy." {
+    var html =
+        \\<div>
+        \\  <img>
+        \\  <p></p>
+        \\</div>
+    ;
+    var document = try parse(&alloc, &html);
+
+    var tags = document.tags.toSlice();
+    var parents = document.parents.toSlice();
+    assert(tags[1] == Tag.Div);
+    assert(tags[2] == Tag.Img);
+    assert(tags[3] == Tag.P);
+    assert(tags[parents[2]] == Tag.Div);
+    assert(tags[parents[3]] == Tag.Div);
 }
 
 // ----- Teardown -----
