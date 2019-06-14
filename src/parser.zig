@@ -5,6 +5,7 @@ const warn = std.debug.warn;
 const Allocator = @import("std").mem.Allocator;
 const BytesList = @import("bytes.zig").BytesList;
 const Document = @import("document.zig").Document;
+const Stack = @import("stack.zig").Stack;
 const Tag = @import("tag.zig").Tag;
 const Token = @import("token.zig").Token;
 const TokenKind = @import("token.zig").TokenKind;
@@ -12,33 +13,7 @@ const Tokenizer = @import("tokenizer.zig").Tokenizer;
 const TokenArray = @import("tokenizer.zig").TokenArray;
 
 
-const ParentIndexList = ArrayList(usize);
-
-const DocumentScopeStack = struct {
-    items: ArrayList(usize),
-
-    fn create(allocator: *Allocator) DocumentScopeStack {
-        return DocumentScopeStack {
-            .items = ArrayList(usize).init(allocator)
-        };
-    }
-
-    fn deinit(self: *DocumentScopeStack) void  {
-        self.items.deinit();
-    }
-
-    fn append(self: *DocumentScopeStack, scope: usize) !void {
-        try self.items.append(scope);
-    }
-
-    fn last(self: *DocumentScopeStack) usize {
-        return self.items.at(self.items.count() - 1);
-    }
-
-    fn pop(self: *DocumentScopeStack) usize {
-        return self.items.pop();
-    }
-};
+const DocumentScopeStack = Stack(usize);
 
 
 pub fn parse(allocator: *Allocator, html: []u8) !Document {
