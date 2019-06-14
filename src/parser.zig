@@ -21,6 +21,11 @@ const Scope = struct {
 const DocumentScopeStack = Stack(Scope);
 
 
+const ParsingError = error {
+    MalformedDocument
+};
+
+
 pub fn parse(allocator: *Allocator, html: []u8) !Document {
     var tokenizer = Tokenizer.init(allocator);
 
@@ -39,11 +44,6 @@ pub fn parse(allocator: *Allocator, html: []u8) !Document {
 
     for (tokens.toSlice()) |*token| {
 
-        if (token.is_closing_tag()) {
-            _ = document_scope_stack.pop();
-            continue;
-        }
-
         var current_scope = document_scope_stack.last();
         var content = token.content.toSlice();
 
@@ -60,6 +60,14 @@ pub fn parse(allocator: *Allocator, html: []u8) !Document {
                     );
                 }
                 try add_tag_to_document(allocator, &document, current_scope.index, tag);
+            },
+            TokenKind.ClosingTag => {
+                tag = Tag.from_name(content);
+                if (current_scope.tag != tag) {
+                    return ParsingError.MalformedDocument;
+                }
+                _ = document_scope_stack.pop();
+                continue;
             },
             TokenKind.Text => try add_text_to_document(allocator, &document, current_scope.index, content),
             TokenKind.Attribute => try add_attribute_to_node(&document, current_scope.index, content),
@@ -109,6 +117,20 @@ test "Parse tag." {
     var parents = document.parents.toSlice();
     assert(tags[1] == Tag.Div);
     assert(parents[1] == 0);
+}
+
+
+test "Parse badly ordered closing tag returns an error." {
+    var value: ?Document = parse(&alloc, &"<div><p></div></p>") catch |err| switch(err) {
+        ParsingError.MalformedDocument => {
+            return {};
+        },
+        else => {
+            unreachable;
+        }
+    };
+
+    assert(false);
 }
 
 test "Parse tag - By default each tag as an empty string." {
