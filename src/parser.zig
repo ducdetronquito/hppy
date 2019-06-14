@@ -46,7 +46,7 @@ pub fn parse(allocator: *Allocator, html: []u8) !Document {
             TokenKind.OpeningTag => {
                 tag = Tag.from_name(content);
 
-                if (!tag.is_in(&self_closing_tags)) {
+                if (!self_closing_tags.contains(tag)) {
                     try document_scope_stack.append(document.tags.count());
                 }
                 try add_tag_to_document(allocator, &document, current_scope, tag);

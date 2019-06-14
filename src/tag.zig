@@ -1,9 +1,11 @@
 const std = @import("std");
+const ArrayList = std.ArrayList;
 const Allocator = @import("std").mem.Allocator;
 const mem = std.mem;
-const ArrayList = std.ArrayList;
+const EnumHashMap = @import("hashmap.zig").EnumHashMap;
 
 pub const TagList = ArrayList(Tag);
+pub const TagSet = EnumHashMap(Tag, void);
 
 
 pub const Tag = enum {
@@ -40,19 +42,10 @@ pub const Tag = enum {
         }
     }
 
-    pub fn get_self_closing_tags(allocator: *Allocator) !TagList {
-        var tags = TagList.init(allocator);
-        try tags.append(Tag.Doctype);
-        try tags.append(Tag.Img);
+    pub fn get_self_closing_tags(allocator: *Allocator) !TagSet {
+        var tags = TagSet.init(allocator);
+        _ = try tags.put(Tag.Doctype, {});
+        _ = try tags.put(Tag.Img, {});
         return tags;
-    }
-
-    pub fn is_in(self: Tag, values: *TagList) bool {
-        for (values.toSlice()) |tag| {
-            if (self == tag) {
-                return true;
-            }
-        }
-        return false;
     }
 };
