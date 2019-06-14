@@ -13,7 +13,12 @@ const Tokenizer = @import("tokenizer.zig").Tokenizer;
 const TokenArray = @import("tokenizer.zig").TokenArray;
 
 
-const DocumentScopeStack = Stack(usize);
+const Scope = struct {
+    tag: Tag,
+    index: usize
+};
+
+const DocumentScopeStack = Stack(Scope);
 
 
 pub fn parse(allocator: *Allocator, html: []u8) !Document {
@@ -21,7 +26,7 @@ pub fn parse(allocator: *Allocator, html: []u8) !Document {
 
     var document_scope_stack = DocumentScopeStack.create(allocator);
     defer document_scope_stack.deinit();
-    try document_scope_stack.append(0);
+    try document_scope_stack.append(Scope {.tag = Tag.DocumentRoot, .index = 0});
 
     var tag = Tag.Undefined;
     var text: []u8 = "";
@@ -47,12 +52,17 @@ pub fn parse(allocator: *Allocator, html: []u8) !Document {
                 tag = Tag.from_name(content);
 
                 if (!self_closing_tags.contains(tag)) {
-                    try document_scope_stack.append(document.tags.count());
+                    try document_scope_stack.append(
+                        Scope {
+                            .tag = tag,
+                            .index = document.tags.count()
+                        }
+                    );
                 }
-                try add_tag_to_document(allocator, &document, current_scope, tag);
+                try add_tag_to_document(allocator, &document, current_scope.index, tag);
             },
-            TokenKind.Text => try add_text_to_document(allocator, &document, current_scope, content),
-            TokenKind.Attribute => try add_attribute_to_node(&document, current_scope, content),
+            TokenKind.Text => try add_text_to_document(allocator, &document, current_scope.index, content),
+            TokenKind.Attribute => try add_attribute_to_node(&document, current_scope.index, content),
             else => continue
         }
     }
