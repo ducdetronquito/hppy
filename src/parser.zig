@@ -1,4 +1,5 @@
 const std = @import("std");
+const ArrayList = std.ArrayList;
 const warn = std.debug.warn;
 
 const Allocator = @import("std").mem.Allocator;
@@ -6,22 +7,46 @@ const BytesList = @import("bytes.zig").BytesList;
 const Document = @import("document.zig").Document;
 const Tag = @import("tag.zig").Tag;
 const Token = @import("token.zig").Token;
+const TokenKind = @import("token.zig").TokenKind;
 const Tokenizer = @import("tokenizer.zig").Tokenizer;
 const TokenArray = @import("tokenizer.zig").TokenArray;
 
 
+const ParentIndexList = ArrayList(usize);
 
-const ParentIndexList = std.ArrayList(usize);
+const DocumentScopeStack = struct {
+    items: ArrayList(usize),
+
+    fn create(allocator: *Allocator) DocumentScopeStack {
+        return DocumentScopeStack {
+            .items = ArrayList(usize).init(allocator)
+        };
+    }
+
+    fn deinit(self: *DocumentScopeStack) void  {
+        self.items.deinit();
+    }
+
+    fn append(self: *DocumentScopeStack, scope: usize) !void {
+        try self.items.append(scope);
+    }
+
+    fn last(self: *DocumentScopeStack) usize {
+        return self.items.at(self.items.count() - 1);
+    }
+
+    fn pop(self: *DocumentScopeStack) usize {
+        return self.items.pop();
+    }
+};
 
 
 pub fn parse(allocator: *Allocator, html: []u8) !Document {
     var tokenizer = Tokenizer.init(allocator);
-    var document = Document.init(allocator);
 
-    var parent_index_list = ParentIndexList.init(allocator);
-    defer parent_index_list.deinit();
-
-    try parent_index_list.append(0);
+    var document_scope_stack = DocumentScopeStack.create(allocator);
+    defer document_scope_stack.deinit();
+    try document_scope_stack.append(0);
 
     var tag = Tag.Undefined;
     var text: []u8 = "";
@@ -29,44 +54,56 @@ pub fn parse(allocator: *Allocator, html: []u8) !Document {
     var self_closing_tags = try Tag.get_self_closing_tags(allocator);
     defer self_closing_tags.deinit();
 
+    var document = Document.init(allocator);
     var tokens = try tokenizer.get_tokens(html);
+
     for (tokens.toSlice()) |*token| {
 
         if (token.is_closing_tag()) {
-            var result = parent_index_list.pop();
+            _ = document_scope_stack.pop();
             continue;
         }
 
-        var parent_index = parent_index_list.at(parent_index_list.count() - 1);
+        var current_scope = document_scope_stack.last();
         var content = token.content.toSlice();
 
-        if (token.is_opening_tag()) {
-            tag = Tag.from_name(content);
-            text = "";
+        switch(token.kind)  {
+            TokenKind.OpeningTag => {
+                tag = Tag.from_name(content);
 
-            if (!tag.is_in(&self_closing_tags)) {
-                try parent_index_list.append(document.tags.count());
-            }
-
-            try document.tags.append(tag);
-            try document.parents.append(parent_index);
-            try document.texts.append(text);
-            try document.attributes.append(BytesList.init(allocator));
-        }
-        else if (token.is_text()) {
-            tag = Tag.Text;
-            text = content;
-            try document.tags.append(tag);
-            try document.parents.append(parent_index);
-            try document.texts.append(text);
-        } else if (token.is_attribute()) {
-            var previous_tag_index = document.tags.count() - 1;
-            try document.attributes.toSlice()[previous_tag_index].append(content);
-            continue;
+                if (!tag.is_in(&self_closing_tags)) {
+                    try document_scope_stack.append(document.tags.count());
+                }
+                try add_tag_to_document(allocator, &document, current_scope, tag);
+            },
+            TokenKind.Text => try add_text_to_document(allocator, &document, current_scope, content),
+            TokenKind.Attribute => try add_attribute_to_node(&document, current_scope, content),
+            else => continue
         }
     }
 
     return document;
+}
+
+
+fn add_tag_to_document(allocator: *Allocator, document: *Document, parent: usize, tag: Tag) !void {
+    return add_node_to_document(allocator, document, parent, tag, "");
+}
+
+
+fn add_text_to_document(allocator: *Allocator, document: *Document, parent: usize, text: []u8) !void {
+    return add_node_to_document(allocator, document, parent, Tag.Text, text);
+}
+
+fn add_node_to_document(allocator: *Allocator, document: *Document, parent: usize, tag: Tag, text: []u8) !void {
+    try document.tags.append(tag);
+    try document.parents.append(parent);
+    try document.texts.append(text);
+    try document.attributes.append(BytesList.init(allocator));
+}
+
+fn add_attribute_to_node(document: *Document, index: usize, content: []u8) !void {
+    try document.attributes.toSlice()[index].append(content);
 }
 
 // ----------------- Tests -------------- //
