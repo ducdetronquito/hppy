@@ -63,30 +63,28 @@ pub fn parse(allocator: *Allocator, html: []u8) !Document {
         var content = token.content.toSlice();
 
         switch(token.kind)  {
-            TokenKind.OpeningTag => {
-                tag = Tag.from_name(content);
-
-                if (!self_closing_tags.contains(tag)) {
-                    try document_scope_stack.append(
-                        Scope {
-                            .tag = tag,
-                            .index = document.tags.count()
-                        }
-                    );
-                }
-                try add_tag_to_document(allocator, &document, current_scope.index, tag);
-            },
-            TokenKind.ClosingTag => {
-                tag = Tag.from_name(content);
-                if (current_scope.tag != tag) {
-                    return ParsingError.MalformedDocument;
-                }
-                _ = document_scope_stack.pop();
-                continue;
-            },
             TokenKind.Text => try add_text_to_document(allocator, &document, current_scope.index, content),
             TokenKind.Attribute => try add_attribute_to_node(&document, current_scope.index, content),
-            else => continue
+            else => {
+                tag = Tag.from_name(content);
+
+                switch(token.kind) {
+                    TokenKind.OpeningTag => {
+                        if (!self_closing_tags.contains(tag)) {
+                            try document_scope_stack.append(Scope { .tag = tag, .index = tags.count() });
+                        }
+                        try add_tag_to_document(allocator, &document, current_scope.index, tag);
+                    },
+                    TokenKind.ClosingTag => {
+                        if (current_scope.tag != tag) {
+                            return ParsingError.MalformedDocument;
+                        }
+                        _ = document_scope_stack.pop();
+                        continue;
+                    },
+                    else => continue
+                }
+            }
         }
     }
 
@@ -132,6 +130,7 @@ var alloc = direct_allocator.allocator;
 
 test "Parse tag." {
     var document = try parse(&alloc, &"<div></div>");
+    defer document.deinit();
 
     var tags = document.tags.toSlice();
     var parents = document.parents.toSlice();
@@ -155,6 +154,7 @@ test "Parse badly ordered closing tag returns an error." {
 
 test "Parse tag - By default each tag as an empty string." {
     var document = try parse(&alloc, &"<div></div>");
+    defer document.deinit();
 
     var texts = document.texts.toSlice();
     assert(Bytes.equals(texts[1], ""));
@@ -171,6 +171,7 @@ test "Parse tag - with multiple nested tags." {
         \\</div>
     ;
     var document = try parse(&alloc, &html);
+    defer document.deinit();
 
     var tags = document.tags.toSlice();
     var parents = document.parents.toSlice();
@@ -187,6 +188,7 @@ test "Parse tag - with multiple nested tags." {
 
 test "Parse text." {
     var document = try parse(&alloc, &"<div>Hello Hppy</div>");
+    defer document.deinit();
 
     var tags = document.tags.toSlice();
     var parents = document.parents.toSlice();
@@ -204,6 +206,7 @@ test "Parse text - Do not create a new hierarchy." {
         \\</div>
     ;
     var document = try parse(&alloc, &html);
+    defer document.deinit();
 
     var tags = document.tags.toSlice();
     var parents = document.parents.toSlice();
@@ -217,6 +220,7 @@ test "Parse text - Do not create a new hierarchy." {
 
 test "Parse attributes - with key-only attribute." {
     var document = try parse(&alloc, &"<div disabled >Hello</div>");
+    defer document.deinit();
 
     var tags = document.tags.toSlice();
     var attributes = document.attributes.toSlice();
@@ -231,6 +235,7 @@ test "Parse attributes - with key-only attribute." {
 
 test "Parse attributes - Key-only arguments can be surrounded by any space characters." {
     var document = try parse(&alloc, &"<div     disabled      >Hello</div>");
+    defer document.deinit();
 
     var tags = document.tags.toSlice();
     var attributes = document.attributes.toSlice();
@@ -248,6 +253,7 @@ test "Img tag do not create a new hierarchy." {
         \\</div>
     ;
     var document = try parse(&alloc, &html);
+    defer document.deinit();
 
     var tags = document.tags.toSlice();
     var parents = document.parents.toSlice();

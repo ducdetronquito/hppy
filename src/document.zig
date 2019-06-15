@@ -24,6 +24,13 @@ pub const Document = struct {
         };
     }
 
+    pub fn deinit(self: *Document) void {
+        self.tags.deinit();
+        self.parents.deinit();
+        self.texts.deinit();
+        self.attributes.deinit();
+    }
+
     pub fn from_string(allocator: *Allocator, html: []u8) !Document {
         return try parser.parse(allocator, html);
     }
@@ -40,6 +47,7 @@ var alloc = direct_allocator.allocator;
 
 test "Document.from_string" {
     var document = try Document.from_string(&alloc, &"<div></div>");
+    defer document.deinit();
 
     assert(document.tags.toSlice().len == 2);
 }
