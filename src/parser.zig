@@ -3,7 +3,7 @@ const ArrayList = std.ArrayList;
 const warn = std.debug.warn;
 
 const Allocator = @import("std").mem.Allocator;
-const BytesList = @import("bytes.zig").BytesList;
+const AttributeMap = @import("attributes.zig").AttributeMap;
 const Document = @import("document.zig").Document;
 const Stack = @import("stack.zig").Stack;
 const Tag = @import("tag.zig").Tag;
@@ -92,11 +92,11 @@ fn add_node_to_document(allocator: *Allocator, document: *Document, parent: usiz
     try document.tags.append(tag);
     try document.parents.append(parent);
     try document.texts.append(text);
-    try document.attributes.append(BytesList.init(allocator));
+    try document.attributes.append(AttributeMap.init(allocator));
 }
 
 fn add_attribute_to_node(document: *Document, index: usize, content: []u8) !void {
-    try document.attributes.toSlice()[index].append(content);
+    _ = try document.attributes.toSlice()[index].put(content, & "true");
 }
 
 // ----------------- Tests -------------- //
@@ -201,7 +201,10 @@ test "Parse attributes - with key-only attribute." {
     var tags = document.tags.toSlice();
     var attributes = document.attributes.toSlice();
     assert(tags[1] == Tag.Div);
-    assert(Bytes.equals(attributes[1].toSlice()[0], "disabled"));
+    assert(attributes[1].contains(&"disabled"));
+
+    var attribute = attributes[1].get(&"disabled") orelse unreachable;
+    assert(Bytes.equals(attribute.value, "true"));
     assert(tags[2] == Tag.Text);
 }
 
@@ -212,7 +215,7 @@ test "Parse attributes - Key-only arguments can be surrounded by any space chara
     var tags = document.tags.toSlice();
     var attributes = document.attributes.toSlice();
     assert(tags[1] == Tag.Div);
-    assert(Bytes.equals(attributes[1].toSlice()[0], "disabled"));
+    assert(attributes[1].contains(&"disabled"));
     assert(tags[2] == Tag.Text);
 }
 

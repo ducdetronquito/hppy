@@ -1,11 +1,15 @@
-const Allocator = @import("std").mem.Allocator;
-const ArrayList = @import("std").ArrayList;
+const std = @import("std");
+const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 const BytesList = @import("bytes.zig").BytesList;
 const Tag = @import("tag.zig").Tag;
 const TagList = @import("tag.zig").TagList;
 const parser = @import("parser.zig");
 const ParentList = ArrayList(usize);
-const AttributesList = ArrayList(BytesList);
+const AttributeMap = @import("attributes.zig").AttributeMap;
+
+
+const AttributesList = ArrayList(AttributeMap);
 
 
 pub const Document = struct {
@@ -26,7 +30,7 @@ pub const Document = struct {
         texts.append("") catch unreachable;
 
         var attributes = AttributesList.init(allocator);
-        attributes.append(BytesList.init(allocator)) catch unreachable;
+        attributes.append(AttributeMap.init(allocator)) catch unreachable;
 
         return Document {
             .allocator = allocator,
@@ -45,7 +49,6 @@ pub const Document = struct {
 // ----------------- Tests -------------- //
 
 // ----- Setup -----
-const std = @import("std");
 const assert = std.debug.assert;
 const direct_allocator = std.heap.DirectAllocator.init();
 var alloc = direct_allocator.allocator;
