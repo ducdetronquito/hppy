@@ -42,21 +42,19 @@ pub fn parse(allocator: *Allocator, html: []u8) !Document {
     var self_closing_tags = try Tag.get_self_closing_tags(allocator);
     defer self_closing_tags.deinit();
 
-    // ----- Documents fields -----
 
     var tags = TagList.init(allocator);
     var parents = ParentList.init(allocator);
     var texts = BytesList.init(allocator);
     var attributes = attribute.AttributesList.init(allocator);
-
     var document = Document.init(&tags, &parents, &texts, &attributes);
 
     try add_document_root_to_document(allocator, &document);
 
-    // ----------------------------
+    var current_attribute_key: []u8 = "";
+    var default_attribute_value = "true";
 
     var tokens = try tokenizer.get_tokens(html);
-
     for (tokens.toSlice()) |*token| {
 
         var current_scope = document_scope_stack.last();
@@ -64,7 +62,11 @@ pub fn parse(allocator: *Allocator, html: []u8) !Document {
 
         switch(token.kind)  {
             TokenKind.Text => try add_text_to_document(allocator, &document, current_scope.index, content),
-            TokenKind.Attribute => try add_attribute_to_node(&document, current_scope.index, content),
+            TokenKind.AttributeKey => {
+                try add_attribute_to_node(&document, tags.count() - 1, content, &default_attribute_value);
+                current_attribute_key = content;
+            },
+            TokenKind.AttributeValue => try add_attribute_to_node(&document, tags.count() - 1, current_attribute_key, content),
             else => {
                 tag = Tag.from_name(content);
 
@@ -113,8 +115,8 @@ fn add_node_to_document(allocator: *Allocator, document: *Document, parent: usiz
     try document.attributes.append(attribute.AttributeMap.init(allocator));
 }
 
-fn add_attribute_to_node(document: *Document, index: usize, content: []u8) !void {
-    _ = try document.attributes.toSlice()[index].put(content, & "true");
+fn add_attribute_to_node(document: *Document, index: usize, key: []u8, value: []u8) !void {
+    _ = try document.attributes.toSlice()[index].put(key, value);
 }
 
 // ----------------- Tests -------------- //
@@ -242,6 +244,25 @@ test "Parse attributes - Key-only arguments can be surrounded by any space chara
     assert(tags[1] == Tag.Div);
     assert(attributes[1].contains(&"disabled"));
     assert(tags[2] == Tag.Text);
+}
+
+
+test "Parse attributes - with key and value." {
+    var document = try parse(&alloc, &"<img width=\"500\">");
+    defer document.deinit();
+
+    var tags = document.tags.toSlice();
+    assert(tags[1] == Tag.Img);
+
+    var attributes = document.attributes.toSlice();
+    // var it = attributes[1].iterator();
+    // while (it.next()) |next| {
+    //     warn("\nAttribute KEY: {}.\n", next.key);
+    //     warn("\nAttribute VALUE: {}.\n", next.value);
+    // }
+
+    var width = attributes[1].get(&"width") orelse unreachable;
+    assert(Bytes.equals(width.value, "500"));
 }
 
 

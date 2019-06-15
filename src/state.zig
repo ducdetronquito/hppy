@@ -2,6 +2,8 @@ pub const State = enum {
     Done,
     ReadAttributeKey,
     ReadAttributes,
+    ReadAttributeValue,
+    ReadAttributeValueOpeningQuote,
     ReadClosingComment,
     ReadDoctype,
     ReadClosingCommentDash,

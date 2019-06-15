@@ -3,7 +3,8 @@ const String = @import("utils/string.zig").String;
 
 
 pub const TokenKind = enum {
-    Attribute,
+    AttributeKey,
+    AttributeValue,
     Doctype,
     ClosingTag,
     Comment,
@@ -42,8 +43,12 @@ pub const Token = struct {
         return Token.init(allocator, TokenKind.Comment);
     }
 
-    pub fn attribute(allocator: *Allocator) Token {
-        return Token.init(allocator, TokenKind.Attribute);
+    pub fn attribute_key(allocator: *Allocator) Token {
+        return Token.init(allocator, TokenKind.AttributeKey);
+    }
+
+    pub fn attribute_value(allocator: *Allocator) Token {
+        return Token.init(allocator, TokenKind.AttributeValue);
     }
 
     fn is_opening_tag(self: Token) bool {
@@ -64,10 +69,6 @@ pub const Token = struct {
 
     fn is_comment(self: Token) bool {
         return self.kind == TokenKind.Comment;
-    }
-
-    fn is_attribute(self: Token) bool {
-        return self.kind == TokenKind.Attribute;
     }
 };
 
@@ -112,10 +113,10 @@ test "Create an Comment Tag" {
     assert(token.is_comment() == true);
 }
 
-test "Create an Attribute Tag" {
-    var token = Token.attribute(&alloc);
+test "Create an AttributeKey Token" {
+    var token = Token.attribute_key(&alloc);
 
-    assert(token.is_attribute() == true);
+    assert(token.kind == TokenKind.AttributeKey);
 }
 
 test "Token is an opening tag" {
@@ -146,12 +147,6 @@ test "Token is comment" {
     var token = Token.init(&alloc, TokenKind.Comment);
 
     assert(token.is_comment() == true);
-}
-
-test "Token is an attribute" {
-    var token = Token.init(&alloc, TokenKind.Attribute);
-
-    assert(token.is_attribute() == true);
 }
 
 // ----- Teardown -----

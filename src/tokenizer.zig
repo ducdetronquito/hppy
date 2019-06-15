@@ -2,6 +2,7 @@ const std = @import("std");
 const Allocator = @import("std").mem.Allocator;
 const State = @import("state.zig").State;
 const Token = @import("token.zig").Token;
+const TokenKind = @import("token.zig").TokenKind;
 const String = @import("string.zig").String;
 const assert = std.debug.assert;
 
@@ -42,6 +43,8 @@ pub const Tokenizer = struct {
             State.ReadOpeningTagName => try self.handle_read_opening_tag_name(character),
             State.ReadAttributes => try self.handle_read_attributes(character),
             State.ReadAttributeKey => try self.handle_read_attribute_key(character),
+            State.ReadAttributeValueOpeningQuote => self.handle_read_attribute_value_opening_quote(character),
+            State.ReadAttributeValue => try self.handle_read_attribute_value(character),
             State.ReadContent => try self.handle_read_content(character),
             State.ReadText => try self.handle_read_text(character),
             State.ReadOpeningCommentOrDoctype => try self.handle_read_opening_comment_or_doctype(character),
@@ -99,7 +102,7 @@ pub const Tokenizer = struct {
             },
             ' ' => return,
             else => {
-                self.token = Token.attribute(self.allocator);
+                self.token = Token.attribute_key(self.allocator);
                 try self.token.content.push(character);
                 self.state = State.ReadAttributeKey;
             }
@@ -115,6 +118,32 @@ pub const Tokenizer = struct {
             '>' => {
                 self.state = State.ReadContent;
                 self.token_has_been_found = true;
+            },
+            '=' => {
+                self.state = State.ReadAttributeValueOpeningQuote;
+                self.token_has_been_found = true;
+            },
+            else => {
+                try self.token.content.push(character);
+            }
+        }
+    }
+
+    fn handle_read_attribute_value_opening_quote(self: *Tokenizer, character: u8) void {
+        switch(character) {
+            '"' =>{
+                self.token = Token.attribute_value(self.allocator);
+                self.state = State.ReadAttributeValue;
+            },
+            else => self.state = State.Done
+        }
+    }
+
+    fn handle_read_attribute_value(self: *Tokenizer, character: u8) !void {
+        switch(character) {
+            '"' => {
+                self.token_has_been_found = true;
+                self.state = State.ReadAttributes;
             },
             else => {
                 try self.token.content.push(character);
@@ -397,7 +426,7 @@ test "Handle - Given ReadAttributes state - When encounter any other character -
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadAttributes;
     try tokenizer.handle('a');
-    assert(tokenizer.token.is_attribute());
+    assert(tokenizer.token.kind == TokenKind.AttributeKey);
 }
 
 
