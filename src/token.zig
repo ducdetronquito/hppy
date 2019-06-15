@@ -1,5 +1,5 @@
 const Allocator = @import("std").mem.Allocator;
-const String = @import("string.zig").String;
+const String = @import("utils/string.zig").String;
 
 
 pub const TokenKind = enum {

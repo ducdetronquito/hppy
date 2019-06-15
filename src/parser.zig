@@ -5,7 +5,7 @@ const warn = std.debug.warn;
 const Allocator = @import("std").mem.Allocator;
 const AttributeMap = @import("attributes.zig").AttributeMap;
 const Document = @import("document.zig").Document;
-const Stack = @import("stack.zig").Stack;
+const Stack = @import("utils/stack.zig").Stack;
 const Tag = @import("tag.zig").Tag;
 const Token = @import("token.zig").Token;
 const TokenKind = @import("token.zig").TokenKind;
@@ -103,7 +103,7 @@ fn add_attribute_to_node(document: *Document, index: usize, content: []u8) !void
 
 // ----- Setup -----
 const assert = std.debug.assert;
-const Bytes = @import("bytes.zig").Bytes;
+const Bytes = @import("utils/bytes.zig").Bytes;
 const direct_allocator = std.heap.DirectAllocator.init();
 var alloc = direct_allocator.allocator;
 // -----------------

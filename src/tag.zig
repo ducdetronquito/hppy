@@ -2,7 +2,7 @@ const std = @import("std");
 const ArrayList = std.ArrayList;
 const Allocator = @import("std").mem.Allocator;
 const mem = std.mem;
-const EnumHashMap = @import("hashmap.zig").EnumHashMap;
+const EnumHashMap = @import("utils/hashmap.zig").EnumHashMap;
 
 pub const TagList = ArrayList(Tag);
 pub const TagSet = EnumHashMap(Tag, void);
