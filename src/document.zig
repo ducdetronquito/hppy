@@ -4,7 +4,7 @@ const ArrayList = std.ArrayList;
 const BytesList = @import("utils/bytes.zig").BytesList;
 const Tag = @import("tag.zig").Tag;
 const TagList = @import("tag.zig").TagList;
-const parser = @import("parser.zig");
+const Parser = @import("parser.zig").Parser;
 const ParentList = @import("hierarchy.zig").ParentList;
 const attribute = @import("attribute.zig");
 
@@ -32,7 +32,10 @@ pub const Document = struct {
     }
 
     pub fn from_string(allocator: *Allocator, html: []u8) !Document {
-        return try parser.parse(allocator, html);
+        var parser = try Parser.init(allocator);
+        defer parser.deinit();
+
+        return try parser.parse(html);
     }
 };
 

@@ -23,6 +23,10 @@ pub const Tokenizer = struct {
         };
     }
 
+    pub fn deinit(self: *Tokenizer) void {
+
+    }
+
     pub fn get_tokens(self: *Tokenizer, html: []u8) !TokenArray {
         var tokens = TokenArray.init(self.allocator);
         for (html) | character | {
@@ -53,7 +57,7 @@ pub const Tokenizer = struct {
             State.ReadClosingComment => self.handle_read_closing_comment(character),
             State.ReadClosingCommentDash => self.handle_read_closing_comment_dash(character),
             State.ReadDoctype => try self.handle_read_doctype(character),
-            else => return,
+            State.Done => return,
         }
     }
 
