@@ -254,11 +254,11 @@ test "Can tokenize div with text" {
     var _tokens = try tokenizer.get_tokens(&"<div>Hello Hppy</div>");
     var tokens = _tokens.toSlice();
     assert(tokens.len == 3);
-    assert(tokens[0].is_opening_tag());
+    assert(tokens[0].kind == TokenKind.OpeningTag);
     assert(tokens[0].content.equals("div"));
-    assert(tokens[1].is_text());
+    assert(tokens[1].kind == TokenKind.Text);
     assert(tokens[1].content.equals("Hello Hppy"));
-    assert(tokens[2].is_closing_tag());
+    assert(tokens[2].kind == TokenKind.ClosingTag);
     assert(tokens[2].content.equals("div"));
 }
 
@@ -267,7 +267,7 @@ test "Can tokenize doctype" {
     var _tokens = try tokenizer.get_tokens(&"<!DOCTYPE html>");
     var tokens = _tokens.toSlice();
     assert(tokens.len == 1);
-    assert(tokens[0].is_doctype());
+    assert(tokens[0].kind == TokenKind.Doctype);
     assert(tokens[0].content.equals("DOCTYPE html"));
 }
 
@@ -276,7 +276,7 @@ test "Can tokenize comment" {
     var _tokens = try tokenizer.get_tokens(&"<!-- Hello Hppy -->");
     var tokens = _tokens.toSlice();
     assert(tokens.len == 1);
-    assert(tokens[0].is_comment());
+    assert(tokens[0].kind == TokenKind.Comment);
     assert(tokens[0].content.equals(" Hello Hppy "));
 }
 
@@ -337,7 +337,7 @@ test "Handle - Given ReadTagName state - When encounter / character - Then start
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadTagName;
     try tokenizer.handle('/');
-    assert(tokenizer.token.is_closing_tag());
+    assert(tokenizer.token.kind == TokenKind.ClosingTag);
 }
 
 test "Handle - Given ReadTagName state - When encounter any other character - Then switch state to ReadOpeningTagName." {
@@ -351,7 +351,7 @@ test "Handle - Given ReadTagName state - When encounter any other character - Th
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadTagName;
     try tokenizer.handle('a');
-    assert(tokenizer.token.is_opening_tag());
+    assert(tokenizer.token.kind == TokenKind.OpeningTag);
 }
 
 test "Handle - Given ReadTagName state - When encounter any other character - Store the character." {
@@ -509,7 +509,7 @@ test "Handle - Given ReadContent state - When encounter any other character - Th
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadContent;
     try tokenizer.handle('a');
-    assert(tokenizer.token.is_text());
+    assert(tokenizer.token.kind == TokenKind.Text);
 }
 
 // ----- Test ReadText state -----
@@ -578,7 +578,7 @@ test "Handle - Given ReadOpeningCommentDash state - When encounter - character -
     var tokenizer = Tokenizer.init(&alloc);
     tokenizer.state = State.ReadOpeningCommentDash;
     try tokenizer.handle('-');
-    assert(tokenizer.token.is_comment());
+    assert(tokenizer.token.kind == TokenKind.Comment);
 }
 
 test "Handle - Given ReadOpeningCommentDash state - When encounter any other character - Then switch state to Done." {
