@@ -5,32 +5,18 @@ const BytesList = @import("utils/bytes.zig").BytesList;
 const Tag = @import("tag.zig").Tag;
 const TagList = @import("tag.zig").TagList;
 const parser = @import("parser.zig");
-const ParentList = ArrayList(usize);
+const ParentList = @import("hierarchy.zig").ParentList;
 const attribute = @import("attribute.zig");
 
 
 pub const Document = struct {
-    tags: TagList,
-    parents: ParentList,
-    texts: BytesList,
-    attributes: attribute.AttributesList,
-    allocator: *Allocator,
+    tags: *TagList,
+    parents: *ParentList,
+    texts: *BytesList,
+    attributes: *attribute.AttributesList,
 
-    pub fn init(allocator: *Allocator) Document {
-        var tags = TagList.init(allocator);
-        tags.append(Tag.DocumentRoot) catch unreachable;
-
-        var parents = ParentList.init(allocator);
-        parents.append(0) catch unreachable;
-
-        var texts = BytesList.init(allocator);
-        texts.append("") catch unreachable;
-
-        var attributes = attribute.AttributesList.init(allocator);
-        attributes.append(attribute.AttributeMap.init(allocator)) catch unreachable;
-
+    pub fn init(tags: *TagList, parents: *ParentList, texts: *BytesList, attributes: *attribute.AttributesList) Document {
         return Document {
-            .allocator = allocator,
             .tags = tags,
             .parents = parents,
             .texts = texts,

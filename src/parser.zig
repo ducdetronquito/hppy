@@ -4,9 +4,12 @@ const warn = std.debug.warn;
 
 const Allocator = @import("std").mem.Allocator;
 const attribute = @import("attribute.zig");
+const BytesList = @import("utils/bytes.zig").BytesList;
 const Document = @import("document.zig").Document;
+const ParentList = @import("hierarchy.zig").ParentList;
 const Stack = @import("utils/stack.zig").Stack;
 const Tag = @import("tag.zig").Tag;
+const TagList = @import("tag.zig").TagList;
 const Token = @import("token.zig").Token;
 const TokenKind = @import("token.zig").TokenKind;
 const Tokenizer = @import("tokenizer.zig").Tokenizer;
@@ -39,7 +42,19 @@ pub fn parse(allocator: *Allocator, html: []u8) !Document {
     var self_closing_tags = try Tag.get_self_closing_tags(allocator);
     defer self_closing_tags.deinit();
 
-    var document = Document.init(allocator);
+    // ----- Documents fields -----
+
+    var tags = TagList.init(allocator);
+    var parents = ParentList.init(allocator);
+    var texts = BytesList.init(allocator);
+    var attributes = attribute.AttributesList.init(allocator);
+
+    var document = Document.init(&tags, &parents, &texts, &attributes);
+
+    try add_document_root_to_document(allocator, &document);
+
+    // ----------------------------
+
     var tokens = try tokenizer.get_tokens(html);
 
     for (tokens.toSlice()) |*token| {
@@ -76,6 +91,11 @@ pub fn parse(allocator: *Allocator, html: []u8) !Document {
     }
 
     return document;
+}
+
+
+fn add_document_root_to_document(allocator: *Allocator, document: *Document) !void {
+    return add_node_to_document(allocator, document, 0, Tag.DocumentRoot, "");
 }
 
 
