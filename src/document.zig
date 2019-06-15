@@ -6,17 +6,14 @@ const Tag = @import("tag.zig").Tag;
 const TagList = @import("tag.zig").TagList;
 const parser = @import("parser.zig");
 const ParentList = ArrayList(usize);
-const AttributeMap = @import("attributes.zig").AttributeMap;
-
-
-const AttributesList = ArrayList(AttributeMap);
+const attribute = @import("attribute.zig");
 
 
 pub const Document = struct {
     tags: TagList,
     parents: ParentList,
     texts: BytesList,
-    attributes: AttributesList,
+    attributes: attribute.AttributesList,
     allocator: *Allocator,
 
     pub fn init(allocator: *Allocator) Document {
@@ -29,8 +26,8 @@ pub const Document = struct {
         var texts = BytesList.init(allocator);
         texts.append("") catch unreachable;
 
-        var attributes = AttributesList.init(allocator);
-        attributes.append(AttributeMap.init(allocator)) catch unreachable;
+        var attributes = attribute.AttributesList.init(allocator);
+        attributes.append(attribute.AttributeMap.init(allocator)) catch unreachable;
 
         return Document {
             .allocator = allocator,

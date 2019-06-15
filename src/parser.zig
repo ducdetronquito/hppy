@@ -3,7 +3,7 @@ const ArrayList = std.ArrayList;
 const warn = std.debug.warn;
 
 const Allocator = @import("std").mem.Allocator;
-const AttributeMap = @import("attributes.zig").AttributeMap;
+const attribute = @import("attribute.zig");
 const Document = @import("document.zig").Document;
 const Stack = @import("utils/stack.zig").Stack;
 const Tag = @import("tag.zig").Tag;
@@ -92,7 +92,7 @@ fn add_node_to_document(allocator: *Allocator, document: *Document, parent: usiz
     try document.tags.append(tag);
     try document.parents.append(parent);
     try document.texts.append(text);
-    try document.attributes.append(AttributeMap.init(allocator));
+    try document.attributes.append(attribute.AttributeMap.init(allocator));
 }
 
 fn add_attribute_to_node(document: *Document, index: usize, content: []u8) !void {
@@ -203,8 +203,8 @@ test "Parse attributes - with key-only attribute." {
     assert(tags[1] == Tag.Div);
     assert(attributes[1].contains(&"disabled"));
 
-    var attribute = attributes[1].get(&"disabled") orelse unreachable;
-    assert(Bytes.equals(attribute.value, "true"));
+    var disabled = attributes[1].get(&"disabled") orelse unreachable;
+    assert(Bytes.equals(disabled.value, "true"));
     assert(tags[2] == Tag.Text);
 }
 
