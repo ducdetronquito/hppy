@@ -27,7 +27,7 @@ pub const Tokenizer = struct {
 
     }
 
-    pub fn get_tokens(self: *Tokenizer, html: []u8) !TokenArray {
+    pub fn get_tokens(self: *Tokenizer, html: []u8) ![]Token {
         var tokens = TokenArray.init(self.allocator);
         for (html) | character | {
             try self.handle(character);
@@ -36,7 +36,7 @@ pub const Tokenizer = struct {
                 self.token_has_been_found = false;
             }
         }
-        return tokens;
+        return tokens.toOwnedSlice();
     }
 
     fn handle(self: *Tokenizer, character: u8) !void {
@@ -255,8 +255,7 @@ var alloc = direct_allocator.allocator;
 
 test "Can tokenize div with text" {
     var tokenizer = Tokenizer.init(&alloc);
-    var _tokens = try tokenizer.get_tokens(&"<div>Hello Hppy</div>");
-    var tokens = _tokens.toSlice();
+    var tokens = try tokenizer.get_tokens(&"<div>Hello Hppy</div>");
     assert(tokens.len == 3);
     assert(tokens[0].kind == TokenKind.OpeningTag);
     assert(tokens[0].content.equals("div"));
@@ -268,8 +267,7 @@ test "Can tokenize div with text" {
 
 test "Can tokenize doctype" {
     var tokenizer = Tokenizer.init(&alloc);
-    var _tokens = try tokenizer.get_tokens(&"<!DOCTYPE html>");
-    var tokens = _tokens.toSlice();
+    var tokens = try tokenizer.get_tokens(&"<!DOCTYPE html>");
     assert(tokens.len == 1);
     assert(tokens[0].kind == TokenKind.Doctype);
     assert(tokens[0].content.equals("DOCTYPE html"));
@@ -277,8 +275,7 @@ test "Can tokenize doctype" {
 
 test "Can tokenize comment" {
     var tokenizer = Tokenizer.init(&alloc);
-    var _tokens = try tokenizer.get_tokens(&"<!-- Hello Hppy -->");
-    var tokens = _tokens.toSlice();
+    var tokens = try tokenizer.get_tokens(&"<!-- Hello Hppy -->");
     assert(tokens.len == 1);
     assert(tokens[0].kind == TokenKind.Comment);
     assert(tokens[0].content.equals(" Hello Hppy "));

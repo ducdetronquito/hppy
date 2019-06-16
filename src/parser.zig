@@ -67,7 +67,7 @@ pub const Parser = struct {
         try self.document_scope_stack.append(Scope {.tag = Tag.DocumentRoot, .index = 0});
 
         var tokens = try self.tokenizer.get_tokens(html);
-        for (tokens.toSlice()) |*token| {
+        for (tokens) |*token| {
             var content = token.content.toSlice();
 
             switch(token.kind)  {
