@@ -10,34 +10,27 @@ const attribute = @import("attribute.zig");
 
 
 pub const Document = struct {
-    tags: *TagList,
-    parents: *ParentList,
-    texts: *BytesList,
-    attributes: *attribute.AttributesList,
-
-    pub fn init(tags: *TagList, parents: *ParentList, texts: *BytesList, attributes: *attribute.AttributesList) Document {
-        return Document {
-            .tags = tags,
-            .parents = parents,
-            .texts = texts,
-            .attributes = attributes,
-        };
-    }
+    tags: []Tag,
+    parents: []usize,
+    texts: [][]u8,
+    attributes: []attribute.AttributeMap,
+    allocator: *Allocator,
 
     pub fn deinit(self: *Document) void {
-        self.tags.deinit();
-        self.parents.deinit();
-        self.texts.deinit();
-        self.attributes.deinit();
+        self.allocator.free(self.tags);
+        self.allocator.free(self.parents);
+        self.allocator.free(self.texts);
+        self.allocator.free(self.attributes);
     }
 
     pub fn from_string(allocator: *Allocator, html: []u8) !Document {
-        var parser = try Parser.init(allocator);
+        var parser = Parser.init(allocator);
         defer parser.deinit();
 
         return try parser.parse(html);
     }
 };
+
 
 // ----------------- Tests -------------- //
 
@@ -52,7 +45,7 @@ test "Document.from_string" {
     var document = try Document.from_string(&alloc, &"<div></div>");
     defer document.deinit();
 
-    assert(document.tags.toSlice().len == 2);
+    assert(document.tags.len == 2);
 }
 
 // ----- Teardown -----

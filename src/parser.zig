@@ -32,114 +32,145 @@ const ParsingError = error {
 
 var DEFAULT_ATTRIBUTE_VALUE: []u8 = &"true";
 
-pub const Parser = struct {
-    tokenizer: Tokenizer,
+const ParsingContext = struct {
+    tags: TagList,
+    parents: ParentList,
+    texts: BytesList,
+    attributes: attribute.AttributesList,
+
     document_scope_stack: DocumentScopeStack,
     self_closing_tags: TagSet,
     current_attribute_key: []u8,
 
     allocator: *Allocator,
 
-    pub fn init(allocator: *Allocator) !Parser {
-        return Parser {
-            .tokenizer = Tokenizer.init(allocator),
+    pub fn init(allocator: *Allocator) !ParsingContext {
+        return ParsingContext {
+            .tags = TagList.init(allocator),
+            .parents = ParentList.init(allocator),
+            .texts = BytesList.init(allocator),
+            .attributes = attribute.AttributesList.init(allocator),
             .document_scope_stack = DocumentScopeStack.create(allocator),
             .self_closing_tags = try Tag.get_self_closing_tags(allocator),
             .current_attribute_key = "",
+            .allocator = allocator
+        };
+    }
+
+    pub fn deinit(self: *ParsingContext) void {
+        self.document_scope_stack.deinit();
+        self.self_closing_tags.deinit();
+    }
+
+    pub fn add_document_root_to_document(self: *ParsingContext) !void {
+        return self.add_node_to_document(0, Tag.DocumentRoot, "");
+    }
+
+    pub fn add_tag_to_document(self: *ParsingContext, parent: usize, tag: Tag) !void {
+        return self.add_node_to_document(parent, tag, "");
+    }
+
+    pub fn add_text_to_document(self: *ParsingContext, parent: usize, text: []u8) !void {
+        return self.add_node_to_document(parent, Tag.Text, text);
+    }
+    pub fn add_scope(self: *ParsingContext, scope: Scope) !void {
+        try self.document_scope_stack.append(scope);
+    }
+
+    fn add_node_to_document(self: *ParsingContext, parent: usize, tag: Tag, text: []u8) !void {
+        try self.tags.append(tag);
+        try self.parents.append(parent);
+        try self.texts.append(text);
+        try self.attributes.append(attribute.AttributeMap.init(self.allocator));
+    }
+
+    pub fn add_attribute_to_node(self: *ParsingContext, index: usize, key: []u8, value: []u8) !void {
+        _ = try self.attributes.toSlice()[index].put(key, value);
+    }
+};
+
+
+pub const Parser = struct {
+    tokenizer: Tokenizer,
+
+    allocator: *Allocator,
+
+    pub fn init(allocator: *Allocator) Parser {
+        return Parser {
+            .tokenizer = Tokenizer.init(allocator),
             .allocator = allocator,
         };
     }
 
     pub fn deinit(self: *Parser) void {
-        self.document_scope_stack.deinit();
         self.tokenizer.deinit();
-        self.self_closing_tags.deinit();
     }
 
     pub fn parse(self: *Parser, html: []u8) !Document {
-        var tags = TagList.init(self.allocator);
-        var parents = ParentList.init(self.allocator);
-        var texts = BytesList.init(self.allocator);
-        var attributes = attribute.AttributesList.init(self.allocator);
-        var document = Document.init(&tags, &parents, &texts, &attributes);
+        var parsing_context = try ParsingContext.init(self.allocator);
+        defer parsing_context.deinit();
 
-        try self.add_document_root_to_document(&document);
-        try self.document_scope_stack.append(Scope {.tag = Tag.DocumentRoot, .index = 0});
+        try parsing_context.add_document_root_to_document();
+        try parsing_context.add_scope(Scope {.tag = Tag.DocumentRoot, .index = 0});
 
         var tokens = try self.tokenizer.get_tokens(html);
         for (tokens) |*token| {
             var content = token.content.toSlice();
 
             switch(token.kind)  {
-                TokenKind.Text => try self.handle_text_token(&document, content),
-                TokenKind.AttributeKey => try self.handle_attribute_key(&document, tags.count() -1, content),
-                TokenKind.AttributeValue => try self.handle_attribute_value(&document, tags.count() -1, content),
-                TokenKind.OpeningTag => try self.handle_opening_tag(&document, content),
-                TokenKind.ClosingTag => try self.handle_closing_tag(content),
+                TokenKind.Text => try self.handle_text_token(&parsing_context, content),
+                TokenKind.AttributeKey => try self.handle_attribute_key(&parsing_context, content),
+                TokenKind.AttributeValue => try self.handle_attribute_value(&parsing_context, content),
+                TokenKind.OpeningTag => try self.handle_opening_tag(&parsing_context, content),
+                TokenKind.ClosingTag => try self.handle_closing_tag(&parsing_context, content),
                 else => continue
             }
         }
 
+        var document  = Document {
+            .tags = parsing_context.tags.toOwnedSlice(),
+            .parents = parsing_context.parents.toOwnedSlice(),
+            .texts = parsing_context.texts.toOwnedSlice(),
+            .attributes = parsing_context.attributes.toOwnedSlice(),
+            .allocator = self.allocator,
+        };
+
         return document;
     }
 
-    fn handle_opening_tag(self: *Parser, document: *Document, name: []u8) !void {
+    fn handle_opening_tag(self: *Parser, parsing_context: *ParsingContext, name: []u8) !void {
         var tag = Tag.from_name(name);
-        var current_scope = self.document_scope_stack.last();
+        var current_scope = parsing_context.document_scope_stack.last();
 
-        if (!self.self_closing_tags.contains(tag)) {
-            try self.document_scope_stack.append(Scope { .tag = tag, .index = document.tags.count() });
+        if (!parsing_context.self_closing_tags.contains(tag)) {
+            try parsing_context.document_scope_stack.append(Scope { .tag = tag, .index = parsing_context.tags.count() });
         }
-        try self.add_tag_to_document(document, current_scope.index, tag);
+        try parsing_context.add_tag_to_document(current_scope.index, tag);
     }
 
-    fn handle_closing_tag(self: *Parser, name: []u8) !void {
+    fn handle_closing_tag(self: *Parser, parsing_context: *ParsingContext, name: []u8) !void {
         var tag = Tag.from_name(name);
-        var current_scope = self.document_scope_stack.last();
+        var current_scope = parsing_context.document_scope_stack.last();
 
         if (current_scope.tag != tag) {
             return ParsingError.MalformedDocument;
         }
-        _ = self.document_scope_stack.pop();
+        _ = parsing_context.document_scope_stack.pop();
     }
 
-    fn handle_text_token(self: *Parser, document: *Document, text: []u8) !void {
-        var parent = self.document_scope_stack.last().index;
-        return self.add_node_to_document(document, parent, Tag.Text, text);
+    fn handle_text_token(self: *Parser, parsing_context: *ParsingContext, text: []u8) !void {
+        var parent = parsing_context.document_scope_stack.last().index;
+        return parsing_context.add_node_to_document(parent, Tag.Text, text);
     }
 
-    fn handle_attribute_key(self: *Parser, document: *Document, parent: usize, key: []u8) !void {
-        try self.add_attribute_to_node(document, parent, key, DEFAULT_ATTRIBUTE_VALUE);
-        self.current_attribute_key = key;
+    fn handle_attribute_key(self: *Parser, parsing_context: *ParsingContext, key: []u8) !void {
+        try parsing_context.add_attribute_to_node(parsing_context.tags.count() - 1, key, DEFAULT_ATTRIBUTE_VALUE);
+        parsing_context.current_attribute_key = key;
     }
 
-    fn handle_attribute_value(self: *Parser, document: *Document, parent: usize, value: []u8) !void {
-        return try self.add_attribute_to_node(document, parent, self.current_attribute_key, value);
+    fn handle_attribute_value(self: *Parser, parsing_context: *ParsingContext, value: []u8) !void {
+        return try parsing_context.add_attribute_to_node(parsing_context.tags.count() - 1, parsing_context.current_attribute_key, value);
     }
-
-    fn add_document_root_to_document(self: *Parser, document: *Document) !void {
-        return self.add_node_to_document(document, 0, Tag.DocumentRoot, "");
-    }
-
-    fn add_tag_to_document(self: *Parser, document: *Document, parent: usize, tag: Tag) !void {
-        return self.add_node_to_document(document, parent, tag, "");
-    }
-
-    fn add_text_to_document(self: *Parser, document: *Document, parent: usize, text: []u8) !void {
-        return self.add_node_to_document(document, parent, Tag.Text, text);
-    }
-
-    fn add_node_to_document(self: *Parser, document: *Document, parent: usize, tag: Tag, text: []u8) !void {
-        try document.tags.append(tag);
-        try document.parents.append(parent);
-        try document.texts.append(text);
-        try document.attributes.append(attribute.AttributeMap.init(self.allocator));
-    }
-
-    fn add_attribute_to_node(self: *Parser, document: *Document, index: usize, key: []u8, value: []u8) !void {
-        _ = try document.attributes.toSlice()[index].put(key, value);
-    }
-
 };
 
 
@@ -155,21 +186,19 @@ var alloc = direct_allocator.allocator;
 // ----- Test Parse -----
 
 test "Parse tag." {
-    var parser = try Parser.init(&alloc);
+    var parser = Parser.init(&alloc);
     defer parser.deinit();
 
     var document = try parser.parse(&"<div></div>");
     defer document.deinit();
 
-    var tags = document.tags.toSlice();
-    var parents = document.parents.toSlice();
-    assert(tags[1] == Tag.Div);
-    assert(parents[1] == 0);
+    assert(document.tags[1] == Tag.Div);
+    assert(document.parents[1] == 0);
 }
 
 
 test "Parse badly ordered closing tag returns an error." {
-    var parser = try Parser.init(&alloc);
+    var parser = Parser.init(&alloc);
     defer parser.deinit();
     var value: ?Document = parser.parse(&"<div><p></div></p>") catch |err| switch(err) {
         ParsingError.MalformedDocument => {
@@ -184,14 +213,13 @@ test "Parse badly ordered closing tag returns an error." {
 }
 
 test "Parse tag - By default each tag as an empty string." {
-    var parser = try Parser.init(&alloc);
+    var parser = Parser.init(&alloc);
     defer parser.deinit();
 
     var document = try parser.parse(&"<div></div>");
     defer document.deinit();
 
-    var texts = document.texts.toSlice();
-    assert(Bytes.equals(texts[1], ""));
+    assert(Bytes.equals(document.texts[1], ""));
 }
 
 test "Parse tag - with multiple nested tags." {
@@ -205,38 +233,33 @@ test "Parse tag - with multiple nested tags." {
         \\</div>
     ;
 
-    var parser = try Parser.init(&alloc);
+    var parser = Parser.init(&alloc);
     defer parser.deinit();
 
     var document = try parser.parse(&html);
     defer document.deinit();
 
-    var tags = document.tags.toSlice();
-    var parents = document.parents.toSlice();
-    assert(tags[1] == Tag.Div);
-    assert(parents[1] == 0);
-    assert(tags[2] == Tag.P);
-    assert(parents[2] == 1);
-    assert(tags[3] == Tag.Div);
-    assert(parents[3] == 1);
-    assert(tags[4] == Tag.P);
-    assert(parents[4] == 3);
+    assert(document.tags[1] == Tag.Div);
+    assert(document.parents[1] == 0);
+    assert(document.tags[2] == Tag.P);
+    assert(document.parents[2] == 1);
+    assert(document.tags[3] == Tag.Div);
+    assert(document.parents[3] == 1);
+    assert(document.tags[4] == Tag.P);
+    assert(document.parents[4] == 3);
 }
 
 
 test "Parse text." {
-    var parser = try Parser.init(&alloc);
+    var parser = Parser.init(&alloc);
     defer parser.deinit();
 
     var document = try parser.parse(&"<div>Hello Hppy</div>");
     defer document.deinit();
 
-    var tags = document.tags.toSlice();
-    var parents = document.parents.toSlice();
-    var texts = document.texts.toSlice();
-    assert(tags[2] == Tag.Text);
-    assert(parents[2] == 1);
-    assert(Bytes.equals(texts[2], "Hello Hppy"));
+    assert(document.tags[2] == Tag.Text);
+    assert(document.parents[2] == 1);
+    assert(Bytes.equals(document.texts[2], "Hello Hppy"));
 }
 
 test "Parse text - Do not create a new hierarchy." {
@@ -246,67 +269,59 @@ test "Parse text - Do not create a new hierarchy." {
         \\  <p></p>
         \\</div>
     ;
-    var parser = try Parser.init(&alloc);
+    var parser = Parser.init(&alloc);
     defer parser.deinit();
 
     var document = try parser.parse(&html);
     defer document.deinit();
 
-    var tags = document.tags.toSlice();
-    var parents = document.parents.toSlice();
-    assert(tags[1] == Tag.Div);
-    assert(tags[2] == Tag.Text);
-    assert(tags[3] == Tag.P);
-    assert(tags[parents[2]] == Tag.Div);
-    assert(tags[parents[3]] == Tag.Div);
+    assert(document.tags[1] == Tag.Div);
+    assert(document.tags[2] == Tag.Text);
+    assert(document.tags[3] == Tag.P);
+    assert(document.tags[document.parents[2]] == Tag.Div);
+    assert(document.tags[document.parents[3]] == Tag.Div);
 }
 
 
 test "Parse attributes - with key-only attribute." {
-    var parser = try Parser.init(&alloc);
+    var parser = Parser.init(&alloc);
     defer parser.deinit();
 
     var document = try parser.parse(&"<div disabled >Hello</div>");
     defer document.deinit();
 
-    var tags = document.tags.toSlice();
-    var attributes = document.attributes.toSlice();
-    assert(tags[1] == Tag.Div);
-    assert(attributes[1].contains(&"disabled"));
+    assert(document.tags[1] == Tag.Div);
+    assert(document.attributes[1].contains(&"disabled"));
 
-    var disabled = attributes[1].get(&"disabled") orelse unreachable;
+    var disabled = document.attributes[1].get(&"disabled") orelse unreachable;
     assert(Bytes.equals(disabled.value, "true"));
-    assert(tags[2] == Tag.Text);
+    assert(document.tags[2] == Tag.Text);
 }
 
 
 test "Parse attributes - Key-only arguments can be surrounded by any space characters." {
-    var parser = try Parser.init(&alloc);
+    var parser = Parser.init(&alloc);
     defer parser.deinit();
 
     var document = try parser.parse(&"<div     disabled      >Hello</div>");
     defer document.deinit();
 
-    var tags = document.tags.toSlice();
-    var attributes = document.attributes.toSlice();
-    assert(tags[1] == Tag.Div);
-    assert(attributes[1].contains(&"disabled"));
-    assert(tags[2] == Tag.Text);
+    assert(document.tags[1] == Tag.Div);
+    assert(document.attributes[1].contains(&"disabled"));
+    assert(document.tags[2] == Tag.Text);
 }
 
 
 test "Parse attributes - with key and value." {
-    var parser = try Parser.init(&alloc);
+    var parser = Parser.init(&alloc);
     defer parser.deinit();
 
     var document = try parser.parse(&"<img width=\"500\">");
     defer document.deinit();
 
-    var tags = document.tags.toSlice();
-    assert(tags[1] == Tag.Img);
+    assert(document.tags[1] == Tag.Img);
 
-    var attributes = document.attributes.toSlice();
-    var width = attributes[1].get(&"width") orelse unreachable;
+    var width = document.attributes[1].get(&"width") orelse unreachable;
     assert(Bytes.equals(width.value, "500"));
 }
 
@@ -318,19 +333,17 @@ test "Img tag do not create a new hierarchy." {
         \\  <p></p>
         \\</div>
     ;
-    var parser = try Parser.init(&alloc);
+    var parser = Parser.init(&alloc);
     defer parser.deinit();
 
     var document = try parser.parse(&html);
     defer document.deinit();
 
-    var tags = document.tags.toSlice();
-    var parents = document.parents.toSlice();
-    assert(tags[1] == Tag.Div);
-    assert(tags[2] == Tag.Img);
-    assert(tags[3] == Tag.P);
-    assert(tags[parents[2]] == Tag.Div);
-    assert(tags[parents[3]] == Tag.Div);
+    assert(document.tags[1] == Tag.Div);
+    assert(document.tags[2] == Tag.Img);
+    assert(document.tags[3] == Tag.P);
+    assert(document.tags[document.parents[2]] == Tag.Div);
+    assert(document.tags[document.parents[3]] == Tag.Div);
 }
 
 // ----- Teardown -----
