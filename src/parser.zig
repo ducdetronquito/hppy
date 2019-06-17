@@ -4,17 +4,13 @@ const warn = std.debug.warn;
 
 const Allocator = @import("std").mem.Allocator;
 const attribute = @import("attribute.zig");
-const BytesList = @import("utils/bytes.zig").BytesList;
 const Document = @import("document.zig").Document;
-const ParentList = @import("hierarchy.zig").ParentList;
 const Stack = @import("utils/stack.zig").Stack;
 const Tag = @import("tag.zig").Tag;
 const TagSet = @import("tag.zig").TagSet;
-const TagList = @import("tag.zig").TagList;
 const Token = @import("token.zig").Token;
 const TokenKind = @import("token.zig").TokenKind;
 const Tokenizer = @import("tokenizer.zig").Tokenizer;
-const TokenArray = @import("tokenizer.zig").TokenArray;
 
 
 const Scope = struct {
@@ -33,10 +29,10 @@ const ParsingError = error {
 var DEFAULT_ATTRIBUTE_VALUE: []u8 = &"true";
 
 const ParsingContext = struct {
-    tags: TagList,
-    parents: ParentList,
-    texts: BytesList,
-    attributes: attribute.AttributesList,
+    tags: ArrayList(Tag),
+    parents: ArrayList(usize),
+    texts: ArrayList([]u8),
+    attributes: ArrayList(attribute.AttributeMap),
 
     document_scope_stack: DocumentScopeStack,
     self_closing_tags: TagSet,
@@ -46,10 +42,10 @@ const ParsingContext = struct {
 
     pub fn init(allocator: *Allocator) !ParsingContext {
         return ParsingContext {
-            .tags = TagList.init(allocator),
-            .parents = ParentList.init(allocator),
-            .texts = BytesList.init(allocator),
-            .attributes = attribute.AttributesList.init(allocator),
+            .tags = ArrayList(Tag).init(allocator),
+            .parents = ArrayList(usize).init(allocator),
+            .texts = ArrayList([]u8).init(allocator),
+            .attributes = ArrayList(attribute.AttributeMap).init(allocator),
             .document_scope_stack = DocumentScopeStack.create(allocator),
             .self_closing_tags = try Tag.get_self_closing_tags(allocator),
             .current_attribute_key = "",
@@ -115,14 +111,12 @@ pub const Parser = struct {
 
         var tokens = try self.tokenizer.get_tokens(html);
         for (tokens) |*token| {
-            var content = token.content.toOwnedSlice();
-
             switch(token.kind)  {
-                TokenKind.Text => try self.handle_text_token(&parsing_context, content),
-                TokenKind.AttributeKey => try self.handle_attribute_key(&parsing_context, content),
-                TokenKind.AttributeValue => try self.handle_attribute_value(&parsing_context, content),
-                TokenKind.OpeningTag => try self.handle_opening_tag(&parsing_context, content),
-                TokenKind.ClosingTag => try self.handle_closing_tag(&parsing_context, content),
+                TokenKind.Text => try self.handle_text_token(&parsing_context, token.content),
+                TokenKind.AttributeKey => try self.handle_attribute_key(&parsing_context, token.content),
+                TokenKind.AttributeValue => try self.handle_attribute_value(&parsing_context, token.content),
+                TokenKind.OpeningTag => try self.handle_opening_tag(&parsing_context, token.content),
+                TokenKind.ClosingTag => try self.handle_closing_tag(&parsing_context, token.content),
                 else => continue
             }
         }
@@ -178,7 +172,7 @@ pub const Parser = struct {
 
 // ----- Setup -----
 const assert = std.debug.assert;
-const Bytes = @import("utils/bytes.zig").Bytes;
+const bytes = @import("utils/bytes.zig");
 const direct_allocator = std.heap.DirectAllocator.init();
 var alloc = direct_allocator.allocator;
 // -----------------
@@ -219,7 +213,7 @@ test "Parse tag - By default each tag as an empty string." {
     var document = try parser.parse(&"<div></div>");
     defer document.deinit();
 
-    assert(Bytes.equals(document.texts[1], ""));
+    assert(bytes.equals(document.texts[1], ""));
 }
 
 test "Parse tag - with multiple nested tags." {
@@ -259,7 +253,7 @@ test "Parse text." {
 
     assert(document.tags[2] == Tag.Text);
     assert(document.parents[2] == 1);
-    assert(Bytes.equals(document.texts[2], "Hello Hppy"));
+    assert(bytes.equals(document.texts[2], "Hello Hppy"));
 }
 
 test "Parse text - Do not create a new hierarchy." {
@@ -294,7 +288,7 @@ test "Parse attributes - with key-only attribute." {
     assert(document.attributes[1].contains(&"disabled"));
 
     var disabled = document.attributes[1].get(&"disabled") orelse unreachable;
-    assert(Bytes.equals(disabled.value, "true"));
+    assert(bytes.equals(disabled.value, "true"));
     assert(document.tags[2] == Tag.Text);
 }
 
@@ -322,7 +316,7 @@ test "Parse attributes - with key and value." {
     assert(document.tags[1] == Tag.Img);
 
     var width = document.attributes[1].get(&"width") orelse unreachable;
-    assert(Bytes.equals(width.value, "500"));
+    assert(bytes.equals(width.value, "500"));
 }
 
 

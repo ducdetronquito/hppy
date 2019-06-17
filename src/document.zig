@@ -1,11 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const ArrayList = std.ArrayList;
-const BytesList = @import("utils/bytes.zig").BytesList;
 const Tag = @import("tag.zig").Tag;
-const TagList = @import("tag.zig").TagList;
 const Parser = @import("parser.zig").Parser;
-const ParentList = @import("hierarchy.zig").ParentList;
 const attribute = @import("attribute.zig");
 
 
