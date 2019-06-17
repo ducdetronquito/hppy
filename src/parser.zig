@@ -115,7 +115,7 @@ pub const Parser = struct {
 
         var tokens = try self.tokenizer.get_tokens(html);
         for (tokens) |*token| {
-            var content = token.content.toSlice();
+            var content = token.content.toOwnedSlice();
 
             switch(token.kind)  {
                 TokenKind.Text => try self.handle_text_token(&parsing_context, content),

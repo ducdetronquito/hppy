@@ -33,6 +33,10 @@ pub const String = struct {
         return self.bytes.toSlice();
     }
 
+    fn toOwnedSlice(self: *String) []u8 {
+        return self.bytes.toOwnedSlice();
+    }
+
     pub fn equals(self: *String, b: []const u8) bool {
         return mem.eql_slice_u8(self.bytes.toSlice(), b);
     }

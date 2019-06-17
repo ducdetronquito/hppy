@@ -3,7 +3,6 @@ const Allocator = @import("std").mem.Allocator;
 const State = @import("state.zig").State;
 const Token = @import("token.zig").Token;
 const TokenKind = @import("token.zig").TokenKind;
-const String = @import("string.zig").String;
 const assert = std.debug.assert;
 
 const TokenArray = std.ArrayList(Token);
