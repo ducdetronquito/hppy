@@ -25,7 +25,7 @@ pub const Tokenizer = struct {
     }
 
     pub fn deinit(self: *Tokenizer) void {
-
+        self.current_token_content.deinit();
     }
 
     pub fn get_tokens(self: *Tokenizer, html: []u8) ![]Token {
@@ -105,7 +105,6 @@ pub const Tokenizer = struct {
             else => try self.current_token_content.append(character)
         }
     }
-
 
     fn handle_read_attributes(self: *Tokenizer, character: u8) !void {
         switch(character) {

@@ -2,14 +2,14 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const Tag = @import("tag.zig").Tag;
 const Parser = @import("parser.zig").Parser;
-const attribute = @import("attribute.zig");
+const AttributeMap = @import("attribute.zig").AttributeMap;
 
 
 pub const Document = struct {
     tags: []Tag,
     parents: []usize,
     texts: [][]u8,
-    attributes: []attribute.AttributeMap,
+    attributes: []AttributeMap,
     allocator: *Allocator,
 
     pub fn deinit(self: *Document) void {

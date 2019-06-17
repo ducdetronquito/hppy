@@ -110,6 +110,8 @@ pub const Parser = struct {
         try parsing_context.add_scope(Scope {.tag = Tag.DocumentRoot, .index = 0});
 
         var tokens = try self.tokenizer.get_tokens(html);
+        defer self.allocator.free(tokens);
+
         for (tokens) |*token| {
             switch(token.kind)  {
                 TokenKind.Text => try self.handle_text_token(&parsing_context, token.content),
