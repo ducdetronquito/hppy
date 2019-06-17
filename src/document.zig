@@ -20,7 +20,7 @@ pub const Document = struct {
     }
 
     pub fn from_string(allocator: *Allocator, html: []u8) !Document {
-        var parser = Parser.init(allocator);
+        var parser = try Parser.init(allocator);
         defer parser.deinit();
 
         return try parser.parse(html);
