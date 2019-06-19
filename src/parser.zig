@@ -8,9 +8,9 @@ const Document = @import("document.zig").Document;
 const Stack = @import("utils/stack.zig").Stack;
 const Tag = @import("tag.zig").Tag;
 const TagSet = @import("tag.zig").TagSet;
-const Token = @import("token.zig").Token;
-const TokenKind = @import("token.zig").TokenKind;
-const Tokenizer = @import("tokenizer.zig").Tokenizer;
+const Token = @import("tokenizer/token.zig").Token;
+const TokenKind = @import("tokenizer/token.zig").TokenKind;
+const Tokenizer = @import("tokenizer/tokenizer.zig").Tokenizer;
 
 
 const Scope = struct {

@@ -256,7 +256,7 @@ pub const Tokenizer = struct {
 // ----- Setup -----
 const direct_allocator = std.heap.DirectAllocator.init();
 var alloc = direct_allocator.allocator;
-const bytes = @import("utils/bytes.zig");
+const bytes = @import("../utils/bytes.zig");
 // -----------------
 
 // ----- Test Get Tokens -----
